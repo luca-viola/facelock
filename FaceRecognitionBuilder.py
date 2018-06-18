@@ -12,7 +12,7 @@ class FaceRecognitionBuilder(object):
   cam_width = 0
   cam_height = 0
   settings = None
-  trayIconVisualFeedback = None
+  visualFeedback = None
 
   def __init__(self):
     self.faceLock = None
@@ -22,7 +22,7 @@ class FaceRecognitionBuilder(object):
     return self
 
   def withVisualFeedback(self, trayIconVisualFeedback):
-    self.trayIconVisualFeedback = trayIconVisualFeedback
+    self.visualFeedback = trayIconVisualFeedback
     return self
 
   def withCameraProperties(self, cam_fps, cam_width, cam_height):
@@ -34,7 +34,7 @@ class FaceRecognitionBuilder(object):
   def build(self):
     self.faceLock = _FaceRecognition(self.settings)
     self.faceLock.setCamResolution(self.cam_fps, self.cam_width, self.cam_height)
-    self.faceLock.setVisualFeedback(self.trayIconVisualFeedback)
+    self.faceLock.setVisualFeedback(self.visualFeedback)
     return self.faceLock
 
 class _FaceRecognition(Thread):
@@ -44,7 +44,7 @@ class _FaceRecognition(Thread):
   target_face_enconding = None
   targetFaceName = ''
   running = True
-  trayIcon = None
+  visualFeedback = None
   timeout = 0
   processFrameCount = 0
   imagePath = ''
@@ -72,7 +72,7 @@ class _FaceRecognition(Thread):
     self.running = False
   
   def setVisualFeedback(self, visualFeedback):
-    self.trayIcon = visualFeedback
+    self.visualFeedback = visualFeedback
   
   def setCamResolution(self, cam_fps, cam_width, cam_height):
     self.cam_fps = cam_fps
@@ -92,8 +92,6 @@ class _FaceRecognition(Thread):
     face_names = []
     process_this_frame = True
     counter = time.time()
-    
-    operativeSystem = platform.system()
     
     while self.running == True:
       try:
@@ -122,19 +120,17 @@ class _FaceRecognition(Thread):
             counter = time.time()
           face_names.append(name)
 
-      # process_this_frame = not process_this_frame
       process_this_frame = (process_this_frame + 1) % int((self.cam_fps / self.processFrameCount))
       font = cv2.FONT_HERSHEY_DUPLEX
       
       if self.targetFaceName not in face_names:
         lapse = int(time.time() - counter)
-        # print("\rTime to lock:"+str(intervalSecs-lapse))
         cv2.putText(small_frame, str(lapse), (10, 90), font, 4.0, (0, 0, 255), 0)
-        if self.trayIcon != None:
-          self.trayIcon.ko()
+        if self.visualFeedback != None:
+          self.visualFeedback.ko()
       else:
-        if self.trayIcon != None:
-          self.trayIcon.ok()
+        if self.visualFeedback != None:
+          self.visualFeedback.ok()
       
       if lapse >= self.timeout:
         os.system(self.settings.getExecuteCommand())
@@ -147,8 +143,8 @@ class _FaceRecognition(Thread):
           cv2.rectangle(small_frame, (left, bottom - 9), (right, bottom), (0, 0, 255), cv2.FILLED)
           cv2.putText(small_frame, name, (left + 6, bottom - 2), font, 0.33, (255, 255, 255), 1)
           
-          cv2.namedWindow('Face Lock', cv2.WINDOW_NORMAL)
-          cv2.imshow('Face Lock', small_frame)
+        cv2.namedWindow('Face Lock', cv2.WINDOW_NORMAL)
+        cv2.imshow('Face Lock', small_frame)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
           break
