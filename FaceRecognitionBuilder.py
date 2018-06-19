@@ -119,7 +119,7 @@ class _FaceRecognition(Thread):
             name = known_face_names[first_match_index]
             counter = time.time()
           face_names.append(name)
-
+     
       process_this_frame = (process_this_frame + 1) % int((self.cam_fps / self.processFrameCount))
       font = cv2.FONT_HERSHEY_DUPLEX
       
