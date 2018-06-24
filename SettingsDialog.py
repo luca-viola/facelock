@@ -1,6 +1,7 @@
 from qtImports import *
 
 class SettingsDialog(QDialog):
+  useNativeDialog = True
   cWidget = None
   delaySpinbox = None
   executeCommandLineEdit = None
@@ -138,8 +139,9 @@ class SettingsDialog(QDialog):
 
   def openFileNameDialog(self):    
     options = QFileDialog.Options()
-    #options |= QFileDialog.DontUseNativeDialog
-    fileName, _ = QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", "","All Files (*);;Python Files (*.py)", options=options)
+    if not self.useNativeDialog:
+      options |= QFileDialog.DontUseNativeDialog
+    fileName, _ = QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", self.settings.getImagePath(),"All Files (*);;Python Files (*.py)", options=options)
     if fileName:
       self.selectedImagePathLineEdit.setText(fileName)
       self.settings.setImagePath(fileName)     
