@@ -40,7 +40,7 @@ def main():
     build()
   
   trayIconGUI.show()
-  sys.exit(app.exec_())
+  app.exec_()
 
 if __name__ == '__main__':
     nohup(main)
