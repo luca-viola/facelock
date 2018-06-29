@@ -19,5 +19,11 @@ class QtSystemTrayVisualFeedback(VisualFeedback):
   def warn(self):
     self.qtSystemTrayIcon.setIcon(QIcon("tray3.png"))
 
+  def critical(self):
+    self.qtSystemTrayIcon.setIcon(QIcon("tray4.png"))
+
   def ko(self):
     self.qtSystemTrayIcon.setIcon(QIcon("tray2.png"))
+
+  def busy(self):
+    self.qtSystemTrayIcon.setIcon(QIcon("tray5.png"))

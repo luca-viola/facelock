@@ -1,8 +1,8 @@
-from VisualFeedback import VisualFeedback
 from qtImports import *
 from QtSystemTrayVisualFeedback import QtSystemTrayVisualFeedback
 import os
-
+import platform
+import subprocess
 
 class SystemTrayGUIBuilder(object):
   systemTrayGUI = None
@@ -42,7 +42,7 @@ class _SystemTrayGUI(QSystemTrayIcon):
   faceRecognitionBuilder = None
   starTrackingAction = None
   stopTrackingAction = None
-  visualFeedBack = None
+  visualFeedback = None
   
   def __init__(self, settings, aboutDialog, settingsDialog, faceRecognitionBuilder, parent=None):
       self.settings=settings
@@ -72,8 +72,13 @@ class _SystemTrayGUI(QSystemTrayIcon):
         self.startTracking()
     
   def openCalibration(self):
-    path=os.getcwd()
-    os.system(path+"/calibration.py")
+    system=platform.system()
+    path = os.getcwd()
+    if system=='Linux' and self.faceRecognition!=None and self.faceRecognition.isRunning():
+      msg = "Stop tracking before running calibration."
+      QMessageBox.critical(None, 'Message', msg, QMessageBox.Ok)
+    else:
+      os.system(path + "/calibration.py")
 
   def toggleMutualExclusiveStartStopAction(self,isStartEnabled):
     self.startTrackingAction.setEnabled(isStartEnabled)

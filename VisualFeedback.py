@@ -21,3 +21,10 @@ class VisualFeedback(object, metaclass=abc.ABCMeta):
   def idle(self):
     pass
 
+  @abc.abstractmethod
+  def critical(self):
+    pass
+
+  @abc.abstractmethod
+  def busy(self):
+    pass

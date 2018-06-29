@@ -67,7 +67,10 @@ class _FaceRecognition(Thread):
   def run(self):
     self.running = True
     self.probeFaces()
-  
+
+  def isRunning(self):
+    return self.running
+
   def quit(self):
     self.running = False
   
