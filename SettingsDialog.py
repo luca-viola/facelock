@@ -12,7 +12,6 @@ class SettingsDialog(QDialog):
   processCountLabel = None
   targetFaceNameLineEdit = None
   settings = None
-  timeout = 15
   fps=30
 
   def closeEvent(self, event):
