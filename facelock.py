@@ -21,13 +21,16 @@ def main():
 
   settings=Settings('facelock')
 
+  aboutDialog = AboutDialog()
+  settingsDialog = SettingsDialog(settings)
+
+
   if settings.getImagePath()=='':
     quit_msg = "You need to provide an image with the face to track in the Settings panel."
     settings.setTrackingOnStart(False)
     QMessageBox.warning(None, 'Message', quit_msg, QMessageBox.Ok)
-
-  aboutDialog = AboutDialog()
-  settingsDialog = SettingsDialog(settings)
+    settingsDialog.openFileNameDialog()
+    settingsDialog.saveSettings()
 
   cameraProbe = CameraProbe()
 
