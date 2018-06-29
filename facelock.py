@@ -24,7 +24,7 @@ def main():
   if settings.getImagePath()=='':
     quit_msg = "You need to provide an image with the face to track in the Settings panel."
     settings.setTrackingOnStart(False)
-    QMessageBox.warning(self, 'Message', quit_msg, QMessageBox.Ok)
+    QMessageBox.warning(app, 'Message', quit_msg, QMessageBox.Ok)
 
   aboutDialog = AboutDialog()
   settingsDialog = SettingsDialog(settings)
