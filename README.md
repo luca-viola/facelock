@@ -28,6 +28,12 @@ face recognition on the camera frames against a reference image.
 When the match is not present anymore, it will launch a command
 (typically to lock the screen).
 
+**Warning**:
+On the first run facelock will check that there is a proper face image
+set in the preferences and prompt you to select one.
+It will similarly warn you of a missing external command to lock the screen
+in the settings (see below for how to set this on specific OSes).
+
 ### How to install it on OS/X
 First you need python 3: 
 
