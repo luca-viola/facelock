@@ -1,19 +1,17 @@
 #!/usr/local/bin/python3
 import sys
 
-from settings import Settings
 
 from qtImports import *
 
+from settings import Settings
 from AboutDialog import AboutDialog
 from SettingsDialog import SettingsDialog
 from SystemTrayGUIBuilder import SystemTrayGUIBuilder
-from QtSystemTrayVisualFeedback import QtSystemTrayVisualFeedback
 from CameraProbe import CameraProbe
 from FaceRecognitionBuilder import FaceRecognitionBuilder
-
+from ConfigurationChecker import ConfigurationChecker
 from nohup import nohup
-
 
 def main():
   app = QApplication(sys.argv)
@@ -24,12 +22,7 @@ def main():
   aboutDialog = AboutDialog()
   settingsDialog = SettingsDialog(settings)
 
-
-  if settings.getImagePath()=='':
-    quit_msg = "You need to provide an image with the face to be tracked in the Settings panel."
-    QMessageBox.critical(None, 'Message', quit_msg, QMessageBox.Ok)
-    settingsDialog.openFileNameDialog()
-    settingsDialog.saveSettings()
+  ConfigurationChecker(settingsDialog).fixConfiguration()
 
   cameraProbe = CameraProbe()
 
