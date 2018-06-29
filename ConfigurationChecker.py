@@ -1,6 +1,4 @@
 from qtImports import *
-from appdirs import *
-from shutil import copyfile
 
 class ConfigurationChecker(object):
   settings = None

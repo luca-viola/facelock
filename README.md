@@ -60,7 +60,13 @@ You can find an example of the command to launch to lock the screen for
 OS/X and Fedora+Cinnamon in the **facelock.conf** file, copy its contents
 in the screen settings panel in **Command to execute** .
 
-Save the settings and start tracking it.
+Save the settings and start the tracking. 
+
+In order to lock the screen on osx, you can configure the command to execute
+as:
+
+`/bin/echo 'tell application "Finder" to sleep' | /usr/bin/osascript`
+
 
 ### How to install it on Linux
 The linux installation should be pretty straightforward. Use your package
@@ -83,3 +89,10 @@ should do the trick. Your mileage may vary according to the distribution
 used, especially for PyQt5 and opencv-python: sometimes it is preferable
 to install those dependencies through the package manager and not pip.
 
+In order to lock the screen on linux, you can set as _command to run_ 
+(in the Settings panel) the one local to your distribution / graphic 
+environment.
+
+For example, for cinnamon the command to set would be:
+
+`/usr/bin/cinnamon-screensaver-command  --lock`
