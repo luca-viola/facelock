@@ -33,13 +33,18 @@ First you need python 3:
 
 `brew install python3`
 
-Then install openv
+Then install opencv
 
 `brew install opencv`
 
-finally, install the proper requirements from the facelock directory 
+Opencv is best installed from the package manager _brew_. If you don't and
+use `pip install opencv_python` instead, this version will bring a private
+installation of the qt5 libraries which will conflict with the ones installed
+regularly.
 
-`sudo pip3 install -r requirements.txt`
+Finally, install the proper requirements from the facelock directory 
+
+`sudo pip3 install -r requirements_osx.txt`
 
 and this should be about it.
 
@@ -56,3 +61,25 @@ OS/X and Fedora+Cinnamon in the **facelock.conf** file, copy its contents
 in the screen settings panel in **Command to execute** .
 
 Save the settings and start tracking it.
+
+### How to install it on Linux
+The linux installation should be pretty straightforward. Use your package
+manager to install python3, for example with 
+
+`# dnf install python3`
+(fedora)
+
+`# yum install python3`
+(redhat)
+
+`# apt-get install python3`
+(debian/ubuntu)
+
+after this, running
+
+`# pip3 install -r requirements.txt`
+
+should do the trick. Your mileage may vary according to the distribution 
+used, especially for PyQt5 and opencv-python: sometimes it is preferable
+to install those dependencies through the package manager and not pip.
+
