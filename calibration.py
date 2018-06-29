@@ -1,4 +1,4 @@
-#!/usr/local/bin/python2
+#!/usr/local/bin/python3
 # -*- coding: utf-8 -*-
 from settings import Settings
 from CameraProbe import CameraProbe
