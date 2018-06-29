@@ -1,4 +1,3 @@
 face_recognition
 appdirs
-python-qt5
-opencv-python
+PyQt5
