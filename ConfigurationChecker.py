@@ -14,10 +14,16 @@ class ConfigurationChecker(object):
 
   def fixConfiguration(self):
       self._checkAndSetImagePath()
-
+      self._checkAndSetCommandToExecute()
+      
   def _checkAndSetImagePath(self):
     if self.settings.getImagePath() == '':
       quit_msg = "You need to provide an image with the face to be tracked in the Settings panel."
       QMessageBox.critical(None, 'Message', quit_msg, QMessageBox.Ok)
       self.settingsDialog.openFileNameDialog()
       self.settingsDialog.saveSettings()
+
+  def _checkAndSetCommandToExecute(self):
+    if self.settings.getExecuteCommand() == '':
+      msg = "You have not configured the command to run on facelock timeout. Check 'facelock.conf' for suggestions."
+      QMessageBox.warning(None, 'Message', msg, QMessageBox.Ok)
