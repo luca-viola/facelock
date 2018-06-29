@@ -20,6 +20,12 @@ def main():
   QApplication.setQuitOnLastWindowClosed(False)
 
   settings=Settings('facelock')
+
+  if settings.getImagePath()=='':
+    quit_msg = "You need to provide an image with the face to track in the Settings panel."
+    settings.setTrackingOnStart(False)
+    QMessageBox.warning(self, 'Message', quit_msg, QMessageBox.Ok)
+
   aboutDialog = AboutDialog()
   settingsDialog = SettingsDialog(settings)
 
