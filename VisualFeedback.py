@@ -1,9 +1,7 @@
 import abc
 
 
-class VisualFeedback(object):
-  __metaclass__ = abc.ABCMeta
-  
+class VisualFeedback(object, metaclass=abc.ABCMeta):
   def __init__(self, value):
     self.value = value
 

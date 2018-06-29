@@ -60,7 +60,7 @@ class Settings:
 
     def getSettingsDialogSize(self):
         size = self.config['facelock']['settingsDialogSize'].split("x")
-        return map(int,size)
+        return list(map(int,size))
 
     def setTimeout(self,timeout):
         self.config['facelock']['timeout']=str(timeout)     
