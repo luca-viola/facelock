@@ -1,5 +1,5 @@
 # facelock
-![Facelock logo](https://raw.githubusercontent.com/luca-viola/facelock/master/tray.png=128)
+![Facelock logo](https://raw.githubusercontent.com/luca-viola/facelock/master/tray.png)
 
 A python 3 application that will lock the computer screen when you
 leave, and the camera won't detect **_your_** face in front of it
