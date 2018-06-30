@@ -1,0 +1,5 @@
+#!/bin/bash
+
+unzip Facelock.app.zip
+cp ../*.py ../*.conf ../tray*.png ./Facelock.app/Contents/Resources/
+cp ../facelock.py ./Facelock.app/Contents/Resources/script
