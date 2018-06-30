@@ -95,6 +95,7 @@ vary. To use it, go to the facelock git repository that you have cloned,
 then
 
 `cd osx`
+
 `./install.sh`
  
 ##### Build an OSX .app package (new)
@@ -104,6 +105,7 @@ application from the finder or pin it to the dock. Everytime that the
 app is updated from git makeapp must be used to regenerate it.
 
 `cd osx`
+
 `./makeapp`
 
 ### How to install it on Linux
