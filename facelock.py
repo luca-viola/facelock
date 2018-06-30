@@ -1,6 +1,6 @@
 #!/usr/local/bin/python3
 import sys
-
+import os
 
 from qtImports import *
 
@@ -14,6 +14,8 @@ from ConfigurationChecker import ConfigurationChecker
 from nohup import nohup
 
 def main():
+  os.chdir(os.path.dirname(sys.argv[0]))
+
   app = QApplication(sys.argv)
   QApplication.setQuitOnLastWindowClosed(False)
 
