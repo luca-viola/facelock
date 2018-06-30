@@ -1,5 +1,7 @@
 #!/bin/bash
 
+rm -f Facelock.app
 unzip Facelock.app.zip
 cp ../*.py ../*.conf ../tray*.png ./Facelock.app/Contents/Resources/
 cp ../facelock.py ./Facelock.app/Contents/Resources/script
+open .

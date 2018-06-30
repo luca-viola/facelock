@@ -1,41 +1,57 @@
 # facelock
-A python 3 application to lock the screen when you leave 
-your seat and the camera cannot detect **_your_** face  anymore
-in front of it.
+A python 3 application that will lock the computer screen when you
+leave, and the camera won't detect **_your_** face in front of it
+anymore for a specified interval of time.
 
 ### The idea
 Locking the computer automatically is always painful. You can put a 
 10 second screensaver timeout, but if you stop using the mouse and the
-keyboard for whatever reason it becomes pretty annoying.
-Or I used a script that locked the screen when the signal strength
-of my bluetooth devices (phone or smartwatch) would drop to a certain
-threshold (meaning I am walking away). This worked well as long as
-I had a Linux workstation, now that I have been forced on a macbook 
-I **really** do not want to learn ObSolete/X apis.. I have better 
-ways to waste my time.
+keyboard, for whatever reason, it becomes pretty annoying pretty fast.
+In the past, to protect my sessions from intrusions I wrote a script
+that locked the screen when the signal strength of my bluetooth 
+devices (phone or smartwatch) would drop under a specified
+threshold (typically, when I walked away). This worked well as 
+long as I had a Linux workstation, now that I have been forced on a
+macbook I **really** do not want to learn ObSolete/X apis in 
+Objective C.. I can come with better ways to waste my time.
 
-So here is the last idea: have the camera detect constantly **my** face
-in front of the screen, and when it does not see it anymore, lock the
-screen.
+Thinking and rethinking about zero-hassle ways to do this, I had
+a new idea: have the camera detect constantly **my** face in front
+of the screen, and when it does not see it anymore, lock it.
 
 ### How it works 
 This is based on [dlib](http://dlib.net/), a machine learning C++ library
-that has incredible facial recognition features. Python has a package,
-face_recognition , which wraps dlib.
+that has incredible facial recognition features. In Python you can
+find a package called face_recognition that wraps dlib.
+Python was a natural choice to avoid having to do this in C++, as
+I am not really keen on the idea to learn any OSX specific stuff.
 The software goes in background and opens a Qt5 gui using a system tray
 icon. It uses opencv to read the camera frames, and it will perform a
 face recognition on the camera frames against a reference image.
-When the match is not present anymore, it will launch a command
-(typically to lock the screen).
+When the target face is not present anymore in the camera frames,
+it will launch a configurable command (typically to lock the screen).
+
+One of the main selling points of dlib is that its face recognition 
+algorithms do not need training: just **one** image will suffice.
 
 **Warning**:
 On the first run facelock will check that there is a proper face image
-set in the preferences and prompt you to select one.
+set in the preferences, otherwise it will prompt you to select one.
 It will similarly warn you of a missing external command to lock the screen
 in the settings (see below for how to set this on specific OSes).
+The image should be a clear front view picture of you, and that is
+usually enough. You can tune it and try different pictures (set them
+on the _Settings_ panel) and the Calibration utility.
+
+### Calibration
+Included in the repository there is a small utility called 'Calibration'.
+This can be launched from Facelock main menu, and will show a visual
+feedback on the face recognition process: it can be used to verify that
+the camera is working properly, the image is not doo dark, 
 
 ### How to install it on OS/X
-First you need python 3: 
+The prerequisite is to have the brew package manager installed.
+First thing you need python 3: 
 
 `brew install python3`
 
@@ -73,6 +89,22 @@ as:
 
 `/bin/echo 'tell application "Finder" to sleep' | /usr/bin/osascript`
 
+Inside the `osx/` folder there is a simple script called `install.sh` that
+will try to do the above steps in an automated way, your mileage may 
+vary. To use it, go to the facelock git repository that you have cloned,
+then
+
+`cd osx`
+`./install.sh`
+ 
+##### Build an OSX .app package (new)
+In the `osx/` folder there is a utility called `makeapp`. Using it, it's
+possible to  generate a proper OSX app package, to launch the
+application from the finder or pin it to the dock. Everytime that the 
+app is updated from git makeapp must be used to regenerate it.
+
+`cd osx`
+`./makeapp`
 
 ### How to install it on Linux
 The linux installation should be pretty straightforward. Use your package
