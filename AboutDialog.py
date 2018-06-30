@@ -1,4 +1,5 @@
 from qtImports import *
+from __init__ import __version__
 
 class AboutDialog(QMessageBox):
   def closeEvent(self, event):
@@ -24,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>."""
 
     self.setIcon(QMessageBox.Information)
     self.setWindowTitle("About FaceLock")
-    self.setText('FaceLock &copy; 2018 by Luca Viola ')
+    self.setText("FaceLock &copy; 2018 by Luca Viola <br />Version: <b>"+__version__+"</b><br/>🔒Locks the screen when you are not in front of it anymore!")
     self.setInformativeText('<a href="mailto:luca.viola@gmail.com">luca.viola@gmail.com</a>')
     self.setTextFormat(Qt.RichText)
     self.setDetailedText(message)
