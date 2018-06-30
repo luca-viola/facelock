@@ -92,7 +92,7 @@ as:
 `/bin/echo 'tell application "Finder" to sleep' | /usr/bin/osascript`
 
 Inside the `osx/` folder there is a simple script called `install.sh` that
-will try to do the above steps in an automated way, your mileage may 
+will try to do the above steps in an automated way, but your mileage may 
 vary. To use it, go to the facelock git repository that you have cloned,
 then
 
@@ -100,7 +100,7 @@ then
 
 `./install.sh`
  
-##### Build an OSX .app package (new)
+#### Build an OSX .app package (new)
 In the `osx/` folder there is a utility called `makeapp`. Using it, it's
 possible to  generate a proper OSX app package, to launch the
 application from the finder or pin it to the dock. Everytime that the 
@@ -109,6 +109,20 @@ app is updated from git makeapp must be used to regenerate it.
 `cd osx`
 
 `./makeapp`
+
+#### Experimental: disable the Python Rocket icon on the Dock (new)
+There is an experimental script that will attempt to disable the python
+rocket icon by detecting the Info.plist descriptor of the python launcher
+app and insertin an LMUIElement set to **true**.
+
+In order to start it, 
+
+`cd osx`
+
+`./undock_python.sh`
+
+The original Info.plist file will be backed up in the current directory
+in Info.plist.bck .
 
 ### How to install it on Linux
 The linux installation should be pretty straightforward. Use your package
