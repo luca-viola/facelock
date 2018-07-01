@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>."""
 
     self.setIcon(QMessageBox.Information)
     self.setWindowTitle("About FaceLock")
-    self.setText("FaceLock &copy; 2018 by Luca Viola <br />Version: <b>"+__version__+"</b><br/>🔒Locks the screen when you are not in front of it anymore!")
+    self.setText("FaceLock &copy; 2018 by Luca Viola <br />Version: <b>"+__version__+"</b><br/><br/>🔒 Locks the screen automatically when you walk away!")
     self.setInformativeText('<a href="mailto:luca.viola@gmail.com">luca.viola@gmail.com</a>')
     self.setTextFormat(Qt.RichText)
     self.setDetailedText(message)
