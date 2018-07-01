@@ -24,7 +24,7 @@ lines=`wc -l $info_file | awk '{print $1}'`
 lines=$((lines-2))
 
 if [ -z $(grep "LSUIElement" $info_file) ]; then 
-  echo "Backing up Info.plist in Info.plist.bck"
+  echo "Backing up \"$info_file\" into \"./Info.plist.bck\""
   cp $info_file ./Info.plist.bck
   head -n $lines ./Info.plist.bck > $info_file
   echo -e "\t<key>LSUIElement</key>" >> $info_file 
