@@ -1,5 +1,5 @@
 # facelock
-![Facelock logo](https://raw.githubusercontent.com/luca-viola/facelock/master/tray.png)
+![Facelock logo](logo.png)
 
 A python 3 application that will lock the computer screen when you
 leave, and the camera won't detect **_your_** face in front of it
@@ -49,10 +49,25 @@ on the _Settings_ panel) and the Calibration utility.
 Included in the repository there is a small utility called 'Calibration'.
 This can be launched from Facelock main menu, and will show a visual
 feedback on the face recognition process: it can be used to verify that
-the camera is working properly, the image is not doo dark, 
+the camera is working properly, the image is not doo dark, or the best
+angles to position the laptop or the camera.
 
-### How to install it on OS/X
+### How to install it on OS/X 
+
 The prerequisite is to have the brew package manager installed.
+
+**(NEW)** Consider the `install.sh` script in the `osx` folder, that will try
+to do all the necessary installation steps automatically. In case of problems,
+refer to the description of the necessary steps in this paragraph.
+To use the script, go to the facelock git repository that you have cloned,
+then type
+
+`cd osx`
+
+`./install.sh`
+
+**Manual installation**
+
 First thing you need python 3: 
 
 `brew install python3`
@@ -84,21 +99,12 @@ You can find an example of the command to launch to lock the screen for
 OS/X and Fedora+Cinnamon in the **facelock.conf** file, copy its contents
 in the screen settings panel in **Command to execute** .
 
-Save the settings and start the tracking. 
+Save the settings and start the tracking from the facelock popup menu. 
 
 In order to lock the screen on osx, you can configure the command to execute
 as:
 
 `/bin/echo 'tell application "Finder" to sleep' | /usr/bin/osascript`
-
-Inside the `osx/` folder there is a simple script called `install.sh` that
-will try to do the above steps in an automated way, but your mileage may 
-vary. To use it, go to the facelock git repository that you have cloned,
-then
-
-`cd osx`
-
-`./install.sh`
  
 #### Build an OSX .app package (new)
 In the `osx/` folder there is a utility called `makeapp`. Using it, it's
