@@ -52,6 +52,9 @@ feedback on the face recognition process: it can be used to verify that
 the camera is working properly, the image is not doo dark, or the best
 angles to position the laptop or the camera.
 
+To exit from the calibration window, press the '**q**' when the window
+is in focus.
+
 ### How to install it on OS/X 
 
 The prerequisite is to have the brew package manager installed.

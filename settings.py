@@ -70,7 +70,10 @@ class Settings:
 
     def setTrackingOnStart(self,isTrackingOnStart):
         self.config['facelock']['trackOnStart']=str(isTrackingOnStart)     
-        
+
+    def setLockOnUnknownFacesOnly(self,lockOnUnknowFacesOnly):
+        self.config['facelock']['lockOnUnknownFacesOnly']=str(lockOnUnknowFacesOnly)
+
     def setImagePath(self,imagePath):
         self.config['facelock']['imagePath']=imagePath     
 

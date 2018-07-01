@@ -8,12 +8,13 @@ class SettingsDialog(QDialog):
   executeCommandLineEdit = None
   processCountSpinbox = None
   trackOnStartCheckBox = None
-  lockImmediatelyCheckBox = None
+  lockOnUnknownFacesCheckBox = None
   selectedImagePathLineEdit = None
   processCountLabel = None
   targetFaceNameLineEdit = None
   settings = None
   fps=30
+  firstStart=True
 
   def closeEvent(self, event):
     event.ignore()
@@ -31,7 +32,7 @@ class SettingsDialog(QDialog):
     self._setupTimeoutRow(grid,position); position=position+1
     self._setupExecuteCommandRow(grid, position); position= position + 1
     self._setupTrackOnStartRow(grid, position); position= position + 1
-    self._setupLockImmediatelyRow(grid, position); position= position + 1
+    self._setupLockOnUnknownFacesRow(grid, position); position= position + 1
     self._setupSelectImageRow(grid, position); position= position + 1
     self._setupTargetFaceNameRow(grid, position); position= position + 1
     self._setupProcessCountFramesRow(grid, position); position= position + 1
@@ -88,12 +89,13 @@ class SettingsDialog(QDialog):
     grid.addLayout(buttonsHLayout, position, 0)
     grid.addWidget(selectImageButton, position, 1)
 
-  def _setupLockImmediatelyRow(self, grid, position):
-    lockImmediatelyLabel = QLabel("Immediately lock if tracking unknown face(s) only:")
-    self.lockImmediatelyCheckBox = QCheckBox("", self.cWidget)
-    self.lockImmediatelyCheckBox.setChecked(False)
-    grid.addWidget(lockImmediatelyLabel, position, 0)
-    grid.addWidget(self.lockImmediatelyCheckBox, position, 1)
+  def _setupLockOnUnknownFacesRow(self, grid, position):
+    lockOnUnknownFacesLabel = QLabel("Immediately lock if tracking only unknown face(s):")
+    self.lockOnUnknownFacesCheckBox = QCheckBox("", self.cWidget)
+    self.lockOnUnknownFacesCheckBox.stateChanged.connect(self.lockOnUnknowFacesStateChange)
+    self.lockOnUnknownFacesCheckBox.setChecked(self.settings.isLockingOnUnknownFacesOnly())
+    grid.addWidget(lockOnUnknownFacesLabel, position, 0)
+    grid.addWidget(self.lockOnUnknownFacesCheckBox, position, 1)
 
   def _setupTrackOnStartRow(self, grid, position):
     trackOnStartLabel = QLabel("Immediately begin tracking at application startup:")
@@ -163,3 +165,10 @@ class SettingsDialog(QDialog):
 
   def trackOnStartStateChange(self):
     self.settings.setTrackingOnStart(self.trackOnStartCheckBox.isChecked())
+
+  def lockOnUnknowFacesStateChange(self):
+    if self.lockOnUnknownFacesCheckBox.isChecked() and not self.firstStart:
+      warn_msg = "Careful! This setting, combined with a higher timeout, is more useable but brings a higher security risk: an attacker could use your photo when you are not there to keep the screen from locking."
+      QMessageBox.critical(self, 'Message', warn_msg, QMessageBox.Ok)
+    self.settings.setLockOnUnknownFacesOnly(self.lockOnUnknownFacesCheckBox.isChecked())
+    self.firstStart = False

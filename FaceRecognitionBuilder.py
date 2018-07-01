@@ -135,7 +135,10 @@ class _FaceRecognition(Thread):
         if self.visualFeedback != None:
           self.visualFeedback.ok()
       
-      if lapse >= self.timeout:
+      if (lapse >= self.timeout and self.hasWindow == False) or  \
+                    ((self.targetFaceName not in face_names) and
+                                   ('Unknown' in face_names) and
+                    self.settings.isLockingOnUnknownFacesOnly()):
         os.system(self.settings.getExecuteCommand())
         counter = time.time()
         continue
