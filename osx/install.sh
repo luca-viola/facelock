@@ -1,4 +1,4 @@
-#!/usr/bash
+#!/bin/bash
 
 brew install python3
 brew install opencv
