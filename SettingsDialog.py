@@ -1,4 +1,5 @@
 from qtImports import *
+import threading
 
 class SettingsDialog(QDialog):
   useNativeDialog = True
@@ -129,8 +130,14 @@ class SettingsDialog(QDialog):
 
   def saveSettings(self):
     self.settings.saveSettings()
-    quit_msg = "Stop and start tracking again to apply changes!"
-    QMessageBox.warning(self, 'Message', quit_msg, QMessageBox.Ok)
+    isRunning = False
+    for t in threading.enumerate():
+      if t.getName()=="FACE_RECOGNITION":
+        isRunning = True
+        break
+    if isRunning:
+      quit_msg = "Stop and start tracking again to apply changes!"
+      QMessageBox.warning(self, 'Message', quit_msg, QMessageBox.Ok)
     self.reject()
 
   def onValueChange(self):

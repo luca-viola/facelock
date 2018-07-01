@@ -2,7 +2,6 @@ import face_recognition
 import cv2
 import os
 import time
-import platform
 from threading import Thread
 from time import sleep
 
@@ -55,6 +54,7 @@ class _FaceRecognition(Thread):
   
   def __init__(self, settings):
     Thread.__init__(self)
+    self.setName("FACE_RECOGNITION")
     self.settings = settings
     self.timeout = self.settings.getTimeout()
     self.processFrameCount = self.settings.getProcessCountsPerFps()
