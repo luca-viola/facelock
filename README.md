@@ -119,7 +119,7 @@ app is updated from git makeapp must be used to regenerate it.
 #### Experimental: disable the Python Rocket icon on the Dock (new)
 There is an experimental script that will attempt to disable the python
 rocket icon by detecting the Info.plist descriptor of the python launcher
-app and insertin an LMUIElement set to **true**.
+app and inserting an LSUIElement set to **true**.
 
 In order to start it, 
 
