@@ -108,3 +108,7 @@ venv.bak/
 .idea/*
 .idea/codeStyles/*.xml
 .idea/inspectionProfiles/*.xml
+
+Facelock.app/
+*.DS_Store*
+*.bck
