@@ -1,7 +1,7 @@
 from qtImports import *
 import threading
 
-class SettingsDialog(QDialog):
+class SettingsDialog(QWidget):
   useNativeDialog = True
   cWidget = None
   delaySpinbox = None
@@ -18,7 +18,7 @@ class SettingsDialog(QDialog):
 
   def closeEvent(self, event):
     event.ignore()
-    self.reject()
+    self.hide()
 
   def __init__(self,settings):
     QDialog.__init__(self)
@@ -128,7 +128,8 @@ class SettingsDialog(QDialog):
     self.settings.setSettingsDialogSize(size.width(), size.height())
     
   def cancelSettings(self):
-    self.reject()
+    #self.reject()
+    self.hide()
 
   def saveSettings(self):
     self.settings.saveSettings()
@@ -140,7 +141,7 @@ class SettingsDialog(QDialog):
     if isRunning:
       quit_msg = "Stop and start tracking again to apply changes!"
       QMessageBox.warning(self, 'Message', quit_msg, QMessageBox.Ok)
-    self.reject()
+    self.hide()
 
   def onValueChange(self):
     self.settings.setTimeout(self.delaySpinbox.value())

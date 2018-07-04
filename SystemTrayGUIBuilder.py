@@ -100,6 +100,7 @@ class _SystemTrayGUI(QSystemTrayIcon):
 
   def openSettings(self):
     self.settingsGui.show()
+    self.settingsGui.raise_()
 
   def openAbout(self):
     self.about.exec_()

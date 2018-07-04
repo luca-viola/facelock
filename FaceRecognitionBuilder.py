@@ -4,6 +4,7 @@ import os
 import time
 from threading import Thread
 from time import sleep
+import signal
 
 class FaceRecognitionBuilder(object):
   faceLock = None
@@ -63,7 +64,7 @@ class _FaceRecognition(Thread):
     self.target_face = face_recognition.load_image_file(self.imagePath)
     self.target_face_enconding = face_recognition.face_encodings(self.target_face)[0]
     self.video_capture = cv2.VideoCapture(0)
-  
+    
   def run(self):
     self.running = True
     self.probeFaces()
@@ -162,8 +163,8 @@ class _FaceRecognition(Thread):
       self.hasWindow = False
   
   def freeResources(self):
+    cv2.destroyAllWindows()
     if self.video_capture != None:
       while self.running == True:
         sleep(0.1)
       self.video_capture.release()
-    cv2.destroyAllWindows()
