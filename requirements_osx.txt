@@ -1,3 +1,2 @@
 face_recognition
 appdirs
-PyQt5
