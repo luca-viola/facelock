@@ -2,6 +2,6 @@
 
 rm -rf Facelock.app
 unzip Facelock.app.zip
-cp ../*.py ../*.conf ../tray*.png ./Facelock.app/Contents/Resources/
+cp ../*.py ../*.conf ../tray*.png ../lockscreen.sh ./Facelock.app/Contents/Resources/
 cp ../facelock.py ./Facelock.app/Contents/Resources/script
 open .

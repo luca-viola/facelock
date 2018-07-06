@@ -1,4 +1,7 @@
 from qtImports import *
+import os
+import sys
+
 
 class ConfigurationChecker(object):
   settings = None
@@ -23,5 +26,8 @@ class ConfigurationChecker(object):
 
   def _checkAndSetCommandToExecute(self):
     if self.settings.getExecuteCommand() == '':
-      msg = "You have not configured the command to run on facelock timeout. Check 'facelock.conf' or README.md for suggestions."
-      QMessageBox.warning(None, 'Message', msg, QMessageBox.Ok)
+      installDir=os.path.realpath(".")
+      lockscriptPath=installDir+"/"+"lockscreen.sh"
+      self.settings.setExecuteCommand(lockscriptPath)
+      self.settingsDialog.executeCommandLineEdit.setText(lockscriptPath)
+      self.settings.saveSettings()
