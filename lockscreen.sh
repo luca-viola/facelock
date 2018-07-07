@@ -15,6 +15,9 @@ else
     *GNOME*|*Gnome*|*gnome*)
       /usr/bin/gnome-screensaver-command --lock
       ;;
+    *KDE*|*Kde*|*kde*)
+       qdbus org.freedesktop.ScreenSaver /ScreenSaver Lock
+       ;;
      *)
        break
        ;;
