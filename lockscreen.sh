@@ -13,7 +13,8 @@ else
       /usr/bin/mate-screensaver-command --lock
       ;;
     *GNOME*|*Gnome*|*gnome*)
-      /usr/bin/gnome-screensaver-command --lock
+      /usr/bin/dbus-send --type=method_call --dest=org.gnome.ScreenSaver \
+	        /org/gnome/ScreenSaver org.gnome.ScreenSaver.Lock
       ;;
     *KDE*|*Kde*|*kde*)
        qdbus org.freedesktop.ScreenSaver /ScreenSaver Lock
