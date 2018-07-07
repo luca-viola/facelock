@@ -20,7 +20,7 @@ else
        qdbus org.freedesktop.ScreenSaver /ScreenSaver Lock
        ;;
      *)
-       break
+       /usr/bin/xlock
        ;;
   esac
 fi
