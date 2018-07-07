@@ -93,21 +93,6 @@ and this should be about it.
 Run it with 
 
 `python3 ./facelock.py`
-
-The first time that it runs, it will generate a configuration file in a 
-OS-compliant conventions fashion. Since the imagepath configuration will
-be empty, you will be prompted to select an image.
-
-You can find an example of the command to launch to lock the screen for
-OS/X and Fedora+Cinnamon in the **facelock.conf** file, copy its contents
-in the screen settings panel in **Command to execute** .
-
-Save the settings and start the tracking from the facelock popup menu. 
-
-In order to lock the screen on osx, you can configure the command to execute
-as:
-
-`/bin/echo 'tell application "Finder" to sleep' | /usr/bin/osascript`
  
 #### Build an OSX .app package (new)
 In the `osx/` folder there is a utility called `makeapp`. Using it, it's
@@ -151,13 +136,80 @@ after this, running
 `# pip3 install -r requirements.txt`
 
 should do the trick. Your mileage may vary according to the distribution 
-used, especially for PyQt5 and opencv-python: sometimes it is preferable
-to install those dependencies through the package manager and not pip.
+used, especially for PyQt5 and opencv-python: in some distributions it 
+might be preferable to install those dependencies through the package
+manager and not pip.
 
-In order to lock the screen on linux, you can set as _command to run_ 
-(in the Settings panel) the one local to your distribution / graphic 
-environment.
+> **NOTE**: on some desktop environments, like Gnome 3 Shell , you might need
+some extra extension to be able to see the facelock icon. 
 
-For example, for cinnamon the command to set would be:
+For example, on fedora with Gnome 3, run
+ 
+`sudo dnf install gnome-shell-extension-topicons-plus.noarch`  
 
-`/usr/bin/cinnamon-screensaver-command  --lock`
+On Enlightment, select "Create new Systray" from the desktop menu.
+ 
+### First run
+
+The first time that facelock runs, it will generate a configuration file in a 
+OS-compliant conventions fashion. Since the imagepath configuration will
+be empty, you will be prompted to select an image.
+
+At first run or when the 'command to execute setting' is empty, facelock 
+will automatically configure a path to the lockscreen.sh script, that will
+lock the screen in a multiplatform fashion (see paragraph). 
+
+Have a look at the settings panel and start the tracking from the facelock
+popup menu. 
+
+### The Settings Panel
+
+**Delay time** : The timeout to lock the screen if the target face 
+is not seen for the the specified amount of seconds.
+
+**Command to execute** : A command to execute. Can be any command, it defaults 
+to <FACELOCK_HOME>/lockscreen.sh .
+
+**Immediately begin tracking at application startup** : This will start 
+looking for the target face as soon as the application starts.
+
+**Immediately lock if tracking only unknown faces** : This allows you to 
+have a higher timeout, but lock instantly if an unknown face is detected
+in front of the computer.   
+
+> **Warning**: this could have security consequences, especially on high timeouts.
+
+**Image Path** : The target face image.
+
+**Target face name** : a label for the target face. It will be shown when
+doing calibration, in an highlighted red box surrounding the target face.  
+Non matching faces will be labeled as "unknown".
+
+**Processed frames #** : This will start the face recognition every n frames 
+out of the maximum camera frame rate per second. It is useful to impact less
+on the cpu.
+
+### The lockscreen.sh script
+
+This script is the default command to be launched on a timeout. It will try
+to detect the  enviroment in which it is running and launch the according
+command to lock the screen.
+
+So far, the working environments are
+
+- Gnome
+- Kde
+- Mate
+- Cinnamon
+- Aqua (macOS' desktop)
+
+In all the other cases it will try to fallback on the generic command `xlock`, 
+that will therefore have to be available on the path. 
+For example, on fedora, do 
+
+`sudo dnf install xlockmore`
+
+to obtain it.
+
+Make sure that for each environment you need, the specific lock screen commands
+are installed, e.g. cinnamon-screensaver, mate-screensaver, etc.
