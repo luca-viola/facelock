@@ -118,6 +118,20 @@ In order to start it,
 The original Info.plist file will be backed up in the current directory
 in Info.plist.bck .
 
+
+> ####WARNING:  
+> when you press "stop tracking" from the facelock menu,the python script
+> will try to free the resources  allocated from opencv with 
+> VideoCapture.release(), as per opencv's examples. While this works
+> perfectly on linux, on OSX __it will often crash the application__ with
+> a SIGSEGV or a
+> 
+>'NSInvalidArgumentException', reason: '-[NSTaggedPointerString unlock]: 
+> unrecognized selector sent to instance
+> 
+> This seems to be a problem of opencv.
+
+
 ### How to install it on Linux
 The linux installation should be pretty straightforward. Use your package
 manager to install python3, for example with 
