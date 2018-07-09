@@ -119,7 +119,7 @@ The original Info.plist file will be backed up in the current directory
 in Info.plist.bck .
 
 
-> ####WARNING:  
+> **WARNING**:  
 > when you press "stop tracking" from the facelock menu,the python script
 > will try to free the resources  allocated from opencv with 
 > VideoCapture.release(), as per opencv's examples. While this works
