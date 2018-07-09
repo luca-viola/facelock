@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+xdg_path="$HOME/.local/share/applications"
+facelock_desktop="$xdg_path/facelock.desktop"
+
 exepath=`realpath ../facelock.py`
 iconpath=`realpath ../tray.png`
 
@@ -18,4 +21,8 @@ Icon=${iconpath}
 Icon[en_US]=${iconpath}"
 
 
-echo "${desktopEntry}"
+if [ ! -f "$xdg_path/facelock.desktop" ]; then
+  echo "${desktopEntry}" > "$xdg_path/facelock.desktop"
+else
+  echo "There is already a desktop file for facelock."
+fi
