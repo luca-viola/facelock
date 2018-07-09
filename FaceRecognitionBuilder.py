@@ -105,7 +105,7 @@ class _FaceRecognition(Thread):
       except cv2.error as e:
         counter = time.time()
         print("Exception caught!")
-        video_capture = cv2.VideoCapture(0)
+        self.video_capture = cv2.VideoCapture(0)
         continue
       rgb_small_frame = small_frame[:, :, ::-1]
       
@@ -163,8 +163,11 @@ class _FaceRecognition(Thread):
       self.hasWindow = False
   
   def freeResources(self):
-    cv2.destroyAllWindows()
     if self.video_capture != None:
       while self.running == True:
         sleep(0.1)
-      self.video_capture.release()
+      try:
+        self.video_capture.release()
+      except:
+        print("problem cleaning resources ")
+    cv2.destroyAllWindows()
