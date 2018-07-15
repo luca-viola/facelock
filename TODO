@@ -1,0 +1,10 @@
+pip3 install urllib3
+pip3 intall beautifulsopu4
+
+from urllib.request import urlopen
+
+html=urlopen("https://github.com/luca-viola/facelock/releases")
+from bs4 import BeautifulSoup
+
+soup = BeautifulSoup(html,'html.parser')
+soup.find('ul',attrs={'class': 'tag-references'}).contents[5].a['href']
