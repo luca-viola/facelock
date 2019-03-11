@@ -100,16 +100,16 @@ class _FaceRecognition(Thread):
     while self.running == True:
       try:
         ret, frame = self.video_capture.read()
-        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-        # small_frame = frame
+        small_frame = None
       except cv2.error as e:
         counter = time.time()
         print("Exception caught!")
         self.video_capture = cv2.VideoCapture(0)
         continue
-      rgb_small_frame = small_frame[:, :, ::-1]
       
       if process_this_frame == 0:
+        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        rgb_small_frame = small_frame[:, :, ::-1]
         face_locations = face_recognition.face_locations(rgb_small_frame)
         face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
         
@@ -151,7 +151,8 @@ class _FaceRecognition(Thread):
           cv2.putText(small_frame, name, (left + 6, bottom - 2), font, 0.33, (255, 255, 255), 1)
           
         cv2.namedWindow('Face Lock', cv2.WINDOW_NORMAL)
-        cv2.imshow('Face Lock', small_frame)
+        if small_frame is not None:
+          cv2.imshow('Face Lock', small_frame)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
           break

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 from settings import Settings
 from CameraProbe import CameraProbe
 from FaceRecognitionBuilder import FaceRecognitionBuilder
@@ -8,19 +7,20 @@ from nohup import nohup
 
 
 def main():
-  settings=Settings('facelock')
+  settings = Settings('facelock')
 
   cameraProbe = CameraProbe()
 
-  faceRecognition=FaceRecognitionBuilder().\
-    withSettings(settings).\
+  faceRecognition = FaceRecognitionBuilder(). \
+    withSettings(settings). \
     withCameraProperties(cameraProbe.getFps(),
-                          cameraProbe.getWidth(),
-                          cameraProbe.getHeight()).\
+                         cameraProbe.getWidth(),
+                         cameraProbe.getHeight()). \
     build()
-
-  faceRecognition.toggle()
+  faceRecognition.hasWindow = True
   faceRecognition.run()
-  
+
+
 if __name__ == '__main__':
-    nohup(main)
+  nohup(main)
+

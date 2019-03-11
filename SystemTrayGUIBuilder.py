@@ -74,11 +74,11 @@ class _SystemTrayGUI(QSystemTrayIcon):
   def openCalibration(self):
     system=platform.system()
     path = os.getcwd()
-    if system=='Linux' and self.faceRecognition!=None and self.faceRecognition.isRunning():
+    if system == 'Linux' and self.faceRecognition is None and self.faceRecognition.isRunning():
       msg = "Stop tracking before running calibration."
       QMessageBox.critical(None, 'Message', msg, QMessageBox.Ok)
-    else:
-      os.system(path + "/calibration.py")
+      return
+    os.system(path + "/calibration.py")
 
   def toggleMutualExclusiveStartStopAction(self,isStartEnabled):
     self.startTrackingAction.setEnabled(isStartEnabled)

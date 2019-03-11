@@ -1,5 +1,5 @@
 pip3 install urllib3
-pip3 intall beautifulsopu4
+pip3 install beautifulsoup4
 
 from urllib.request import urlopen
 
