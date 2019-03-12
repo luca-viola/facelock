@@ -1,2 +1,4 @@
 face_recognition
 appdirs
+flask
+werkzeug

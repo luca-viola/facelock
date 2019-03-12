@@ -41,7 +41,7 @@ class _FaceRecognition(Thread):
   video_capture = None
   hasWindow = False
   target_face = None
-  target_face_enconding = None
+  target_face_encoding = None
   targetFaceName = ''
   running = True
   visualFeedback = None
@@ -62,7 +62,7 @@ class _FaceRecognition(Thread):
     self.imagePath = self.settings.getImagePath()
     self.targetFaceName = self.settings.getTargetFaceName()
     self.target_face = face_recognition.load_image_file(self.imagePath)
-    self.target_face_enconding = face_recognition.face_encodings(self.target_face)[0]
+    self.target_face_encoding = face_recognition.face_encodings(self.target_face)[0]
     self.video_capture = cv2.VideoCapture(0)
     
   def run(self):
@@ -85,7 +85,7 @@ class _FaceRecognition(Thread):
   
   def probeFaces(self):
     known_face_encodings = [
-      self.target_face_enconding
+      self.target_face_encoding
     ]
     known_face_names = [
       self.targetFaceName
