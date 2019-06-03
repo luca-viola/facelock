@@ -1,4 +1,6 @@
 # Byte-compiled / optimized / DLL files
+.DS_Store
+osx/Facelock.app/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -108,6 +110,7 @@ venv.bak/
 .idea/*
 .idea/codeStyles/*.xml
 .idea/inspectionProfiles/*.xml
+
 
 Facelock.app/
 *.DS_Store*
