@@ -1,0 +1,19 @@
+# Runtime for the Face Guard daemon. Create it with ./install.sh.
+# The CUDA libraries are pinned to what this onnxruntime-gpu build links against.
+name: faceguard
+channels:
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - cuda-version=12.9
+  - cuda-libraries=12.9.1
+  - cuda-nvrtc=12.9.86
+  - cudnn=9.3.0.75
+  - pip:
+      - insightface==0.7.3
+      - onnx==1.18.0
+      - onnxruntime-gpu==1.22.0
+      - opencv-python-headless==4.11.0.86
+      - numpy==1.26.4

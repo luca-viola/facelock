@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.faceguard" path="/org/gnome/shell/extensions/faceguard/">
+    <key name="enabled" type="b">
+      <default>false</default>
+      <summary>Watch the camera</summary>
+    </key>
+    <key name="camera-device" type="s">
+      <default>'auto'</default>
+      <summary>Camera device path, or auto for the first physical camera</summary>
+    </key>
+    <key name="interval-ms" type="i">
+      <range min="1" max="600000"/>
+      <default>1000</default>
+      <summary>Time between snaps in milliseconds; the camera's real framerate is the upper limit</summary>
+    </key>
+    <key name="match-threshold" type="d">
+      <range min="0.1" max="0.95"/>
+      <default>0.4</default>
+      <summary>Minimum cosine similarity for a face to count as yours</summary>
+    </key>
+    <key name="detection-threshold" type="d">
+      <range min="0.1" max="0.95"/>
+      <default>0.5</default>
+      <summary>Minimum detector confidence for something to count as a face</summary>
+    </key>
+    <key name="min-face-px" type="i">
+      <range min="0" max="1000"/>
+      <default>40</default>
+      <summary>Ignore faces smaller than this many pixels</summary>
+    </key>
+    <key name="absence-grace-s" type="d">
+      <range min="1" max="600"/>
+      <default>10</default>
+      <summary>Seconds without your face before the screen locks</summary>
+    </key>
+    <key name="intruder-grace-s" type="d">
+      <range min="0" max="60"/>
+      <default>1</default>
+      <summary>Seconds another face must stay before the action runs</summary>
+    </key>
+    <key name="intruder-action" type="s">
+      <choices>
+        <choice value="lock"/>
+        <choice value="command"/>
+        <choice value="workspace"/>
+        <choice value="notify"/>
+      </choices>
+      <default>'lock'</default>
+      <summary>What to do when another face appears</summary>
+    </key>
+    <key name="intruder-command" type="s">
+      <default>''</default>
+      <summary>Shell command for the command action</summary>
+    </key>
+    <key name="intruder-workspace" type="i">
+      <range min="1" max="36"/>
+      <default>2</default>
+      <summary>Workspace number for the workspace action</summary>
+    </key>
+    <key name="return-on-clear" type="b">
+      <default>true</default>
+      <summary>Return to the previous workspace once the other face has gone</summary>
+    </key>
+    <key name="python-path" type="s">
+      <default>''</default>
+      <summary>Python interpreter that has insightface installed</summary>
+    </key>
+    <key name="reference-stamp" type="x">
+      <default>0</default>
+      <summary>Changed whenever the reference image is replaced</summary>
+    </key>
+    <key name="enroll-active" type="b">
+      <default>false</default>
+      <summary>The preferences window is using the camera, so monitoring must pause</summary>
+    </key>
+  </schema>
+</schemalist>
