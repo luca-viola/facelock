@@ -15,7 +15,7 @@ photo of you passes as you. Your normal unlock password stays the real security.
 ./install.sh
 ```
 
-This creates a pinned `faceguard` conda environment from `environment.yml` (several
+This creates the exact `faceguard` conda environment from `environment.yml` (several
 GB, and it needs a C++ compiler to build insightface), downloads the `buffalo_l`
 models to `~/.insightface/models` if they're missing, and warms up the GPU cache so
 the first start isn't slow. To use another environment, pass its python as an
