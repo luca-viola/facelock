@@ -1,6 +1,7 @@
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
+import GioUnix from 'gi://GioUnix';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
@@ -422,7 +423,7 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
     }
 
     _appRow(id) {
-        const info = Gio.DesktopAppInfo.new(id);
+        const info = GioUnix.DesktopAppInfo.new(id);
         const row = new Adw.ActionRow({
             title: GLib.markup_escape_text(info?.get_display_name() ?? id, -1),
             subtitle: info ? '' : 'Not installed',

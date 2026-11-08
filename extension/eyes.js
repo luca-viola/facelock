@@ -19,7 +19,8 @@ const LOOK_MS = 90;
 const BUTTON_STYLE = 'font-size: 22px; font-weight: bold; padding: 12px 40px; border-radius: 999px;';
 
 // A pair of giant eyes in the middle of the primary monitor, looking at a position in
-// the camera image. Only Dismiss takes clicks, so the rest of the screen stays usable.
+// the camera image. Only the eyes and Dismiss take clicks, so the rest of the screen
+// stays usable. Double-clicking an eye dismisses them, like the button.
 export class Eyes {
     constructor(onDismiss) {
         this._onDismiss = onDismiss;
@@ -95,6 +96,12 @@ export class Eyes {
             y: Math.round(y - height / 2),
             width: Math.round(width),
             height: Math.round(height),
+            reactive: true,
+        });
+        ball.connect('button-press-event', (_actor, event) => {
+            if (event.get_button() === Clutter.BUTTON_PRIMARY && this._isDoubleClick(event))
+                this._onDismiss();
+            return Clutter.EVENT_STOP;
         });
         ball.connect('repaint', area => {
             const [w, h] = area.get_surface_size();
@@ -128,6 +135,19 @@ export class Eyes {
             rangeX: (width / 2 - outline - radius) * PUPIL_TRAVEL,
             rangeY: (height / 2 - outline - radius) * PUPIL_TRAVEL,
         });
+    }
+
+    // Clutter doesn't count clicks, so this compares with the previous press using
+    // the desktop's double-click settings.
+    _isDoubleClick(event) {
+        const {double_click_time: time, double_click_distance: distance} = Clutter.Settings.get_default();
+        const [x, y] = event.get_coords();
+        const now = event.get_time();
+        const last = this._lastPress;
+        const double = last !== undefined && now - last.time <= time &&
+            Math.hypot(x - last.x, y - last.y) <= distance;
+        this._lastPress = double ? undefined : {time: now, x, y};
+        return double;
     }
 
     _aim(duration) {

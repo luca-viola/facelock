@@ -65,10 +65,11 @@ grace period starts over.
 - **Eyes action:** shows a pair of giant xeyes-style eyes in the middle of the primary
   screen that follow the largest other face, assuming the camera is at the top of the
   screen and doesn't mirror its image. While they're open, the daemon snaps at the
-  camera's full framerate so they keep up. **Dismiss** closes them until that face has
-  been gone for 2 seconds and comes back. They also close by themselves once it has
+  camera's full framerate so they keep up. With several other faces, they look at the
+  largest, which is usually the closest. **Dismiss**, or double-clicking an eye, closes
+  them until that face has been gone for 2 seconds and comes back. They also close by themselves once it has
   gone, and restarting the daemon, such as by unlocking or changing a setting, starts
-  over. The rest of the screen stays usable.
+  over. The rest of the screen stays usable, apart from clicks on the eyes themselves.
 - **Minimize apps:** minimizes the chosen apps' windows on every workspace, alongside
   the action, and restores them once the other face has been gone for 2 seconds,
   unless you turn that off or have restored them yourself. Windows GNOME can't match
