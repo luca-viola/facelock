@@ -69,7 +69,7 @@ export default class FaceGuardExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
         this._settings.set_boolean('enroll-active', false);
-        this._actions = new Actions(this._settings);
+        this._actions = new Actions(this._settings, on => this._daemon?.send(on ? 'track' : 'untrack'));
         this._indicator = new Indicator(this, this._settings);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
 
@@ -101,6 +101,7 @@ export default class FaceGuardExtension extends Extension {
         this._stopDaemon();
         this._indicator.destroy();
         this._indicator = null;
+        this._actions.destroy();
         this._actions = null;
         this._settings = null;
     }
@@ -160,7 +161,9 @@ export default class FaceGuardExtension extends Extension {
         }
     }
 
+    // Also closes the eyes, because a stopped daemon can't say the face has gone.
     _stopDaemon() {
+        this._actions.closeEyes();
         this._daemon?.stop();
         this._daemon = null;
     }
@@ -201,6 +204,9 @@ export default class FaceGuardExtension extends Extension {
             break;
         case 'status':
             this._showStatus(message);
+            break;
+        case 'intruder_at':
+            this._actions.intruderAt(message.x, message.y);
             break;
         case 'trigger':
             this._onTrigger(message);
@@ -248,6 +254,7 @@ export default class FaceGuardExtension extends Extension {
 
     _onDaemonExit(status) {
         this._daemon = null;
+        this._actions.closeEyes();
         if (status === EXIT_FATAL)
             return;
         // While this is retrying nothing is being watched, so _showError has

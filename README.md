@@ -4,7 +4,8 @@ A GNOME Shell extension that watches the camera with InsightFace `buffalo_l`.
 
 - **Your face is missing:** locks the screen after a grace period.
 - **Your face and another are in view:** runs the action you choose (lock, switch
-  workspace, run a command, or notify).
+  workspace, run a command, notify, or show giant eyes), and can also minimize the
+  apps you pick.
 
 This is a convenience guard, not authentication. It has no liveness check, so a
 photo of you passes as you. Your normal unlock password stays the real security.
@@ -39,6 +40,7 @@ split in two:
 | Part | Does |
 |---|---|
 | `extension/extension.js`, `actions.js`, `daemonClient.js` | Panel icon, starts and stops the daemon, carries out actions |
+| `extension/eyes.js`, `gaze.js` | The giant eyes overlay, and where its pupils point |
 | `extension/prefs.js` | Settings window and reference photo capture |
 | `extension/daemon/faceguard_daemon.py` | Camera and buffalo_l, sends JSON events to the extension |
 | `extension/daemon/policy.py` | Decides when to trigger, with no camera or model dependency |
@@ -60,13 +62,29 @@ grace period starts over.
   as OBS Virtual Camera.
 - **Command action:** runs with `sh -c`, with the number of other faces in
   `FACEGUARD_OTHER_FACES`.
+- **Eyes action:** shows a pair of giant xeyes-style eyes in the middle of the primary
+  screen that follow the largest other face, assuming the camera is at the top of the
+  screen and doesn't mirror its image. While they're open, the daemon snaps at the
+  camera's full framerate so they keep up. **Dismiss** closes them until that face has
+  been gone for 2 seconds and comes back. They also close by themselves once it has
+  gone, and restarting the daemon, such as by unlocking or changing a setting, starts
+  over. The rest of the screen stays usable.
+- **Minimize apps:** minimizes the chosen apps' windows on every workspace, alongside
+  the action, and restores them once the other face has been gone for 2 seconds,
+  unless you turn that off or have restored them yourself. Windows GNOME can't match
+  to an installed app, such as some apps started from a script, aren't found. After
+  the screen locks, they stay minimized.
 - **Reference image:** stored at `~/.local/share/faceguard/reference.jpg`, readable
   only by you.
 
 ## Tests
 
 ```sh
-python -m unittest discover -s faceguard/tests
+python -m unittest discover -s tests
 ```
 
-These need numpy but no camera, GPU or models.
+These need numpy but no camera, GPU or models. To test the gaze math:
+
+```sh
+gjs -m tests/test_gaze.js
+```

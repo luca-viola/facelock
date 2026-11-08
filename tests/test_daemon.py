@@ -1,10 +1,11 @@
 """Tests for the decision logic and watch loop. No camera, GPU or models needed.
 
-Run with: python -m unittest discover -s faceguard/tests
+Run with: python -m unittest discover -s tests
 """
 
 import os
 import sys
+import threading
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -13,15 +14,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "extension", "d
 
 import numpy as np
 
-from faceguard_daemon import GuardError, WARMUP_S, classify_faces, load_analyzer, models_present, monitor
+from faceguard_daemon import (
+    GuardError, WARMUP_S, classify_faces, face_center, load_analyzer, models_present, monitor)
 from policy import Policy
 
 OWNER_VEC = np.array([1.0, 0.0])
 STRANGER_VEC = np.array([0.0, 1.0])
 
 
-def face(vector, size=100):
-    return SimpleNamespace(normed_embedding=vector, bbox=[0, 0, size, size])
+def face(vector, size=100, x=0, y=0):
+    return SimpleNamespace(normed_embedding=vector, bbox=[x, y, x + size, y + size])
 
 
 class PolicyTests(unittest.TestCase):
@@ -71,6 +73,13 @@ class PolicyTests(unittest.TestCase):
         frames = [(0, True, 1), (1, True, 0), (2, True, 1), (3, True, 0), (4, True, 0), (5, True, 0)]
         self.assertEqual(self.run_frames(policy, frames), [(0, "intruder"), (5, "clear")])
 
+    def test_intruder_triggers_again_after_leaving_and_returning(self):
+        policy = Policy(50, 0, clear_s=2)
+        frames = [(t, True, 1) for t in range(5)]
+        frames += [(t, True, 0) for t in range(5, 10)]
+        frames += [(t, True, 1) for t in range(10, 15)]
+        self.assertEqual(self.run_frames(policy, frames), [(0, "intruder"), (7, "clear"), (10, "intruder")])
+
     def test_owner_looking_away_during_intruder_does_not_clear(self):
         policy = Policy(50, 0, clear_s=1)
         frames = [(0, True, 1), (1, False, 1), (2, False, 1), (3, False, 1), (4, True, 1)]
@@ -79,7 +88,8 @@ class PolicyTests(unittest.TestCase):
 
 class ClassifyTests(unittest.TestCase):
     def classify(self, faces):
-        return classify_faces(faces, OWNER_VEC, 0.4, 40)
+        owner, others, score = classify_faces(faces, OWNER_VEC, 0.4, 40)
+        return owner, len(others), score
 
     def test_no_faces(self):
         self.assertEqual(self.classify([]), (False, 0, None))
@@ -98,6 +108,15 @@ class ClassifyTests(unittest.TestCase):
 
     def test_small_faces_are_ignored(self):
         self.assertEqual(self.classify([face(OWNER_VEC), face(STRANGER_VEC, size=20)]), (True, 0, 1.0))
+
+    def test_others_exclude_only_the_owner(self):
+        stranger = face(STRANGER_VEC)
+        _, others, _ = classify_faces([stranger, face(OWNER_VEC)], OWNER_VEC, 0.4, 40)
+        self.assertEqual(others, [stranger])
+
+    def test_face_center_is_relative_to_the_frame(self):
+        frame = SimpleNamespace(shape=(720, 1280, 3))
+        self.assertEqual(face_center(face(STRANGER_VEC, size=100, x=590, y=310), frame), (0.5, 0.5))
 
 
 class StopLoop(Exception):
@@ -127,7 +146,7 @@ class FakeCamera:
         if self.clock.now > self.end:
             raise StopLoop
         self.reads += 1
-        return self.scene(self.clock.now)
+        return SimpleNamespace(shape=(720, 1280, 3), faces=self.scene(self.clock.now))
 
     def measured_fps(self):
         return 1 / self.period
@@ -136,11 +155,11 @@ class FakeCamera:
 class FakeAnalyzer:
     @staticmethod
     def faces(frame):
-        return frame
+        return frame.faces
 
 
 class MonitorTests(unittest.TestCase):
-    def run_monitor(self, scene, end, interval_ms=1000, absence=5, intruder=1):
+    def run_monitor(self, scene, end, interval_ms=1000, absence=5, intruder=1, tracking=None):
         clock = FakeClock()
         camera = FakeCamera(clock, scene, end)
         events = []
@@ -148,7 +167,7 @@ class MonitorTests(unittest.TestCase):
         with self.assertRaises(StopLoop):
             monitor(camera, FakeAnalyzer(), OWNER_VEC, Policy(absence, intruder),
                     lambda event, **fields: events.append((clock.now, event, fields)),
-                    config, clock=clock, sleep=clock.sleep)
+                    config, clock=clock, sleep=clock.sleep, tracking=tracking)
         return events, camera
 
     def triggers(self, events):
@@ -176,9 +195,31 @@ class MonitorTests(unittest.TestCase):
         events, _ = self.run_monitor(scene, 40)
         self.assertEqual(self.triggers(events), ["intruder", "clear"])
 
+    def intruder_positions(self, scene):
+        events, _ = self.run_monitor(scene, 10)
+        return [(fields["x"], fields["y"]) for _, event, fields in events if event == "intruder_at"]
+
+    def test_position_of_the_largest_other_face_comes_before_the_trigger(self):
+        small = face(STRANGER_VEC, size=50, x=0, y=0)
+        large = face(STRANGER_VEC, size=200, x=1080, y=520)
+        events, _ = self.run_monitor(lambda t: [face(OWNER_VEC), small, large], 10)
+        names = [event for _, event, _ in events if event in ("intruder_at", "trigger")]
+        self.assertEqual(names[0], "intruder_at")
+        self.assertEqual(self.intruder_positions(lambda t: [face(OWNER_VEC), small, large])[0], (0.922, 0.861))
+
+    def test_no_position_without_the_owner_matched(self):
+        self.assertEqual(self.intruder_positions(lambda t: [face(STRANGER_VEC)]), [])
+
     def test_snap_interval_is_respected(self):
         _, camera = self.run_monitor(lambda t: [face(OWNER_VEC)], 100, interval_ms=2000)
         self.assertLess(camera.reads, 100 / 2 + 40)  # plus the warmup-period reads
+
+    def test_tracking_snaps_at_the_camera_framerate(self):
+        tracking = threading.Event()
+        tracking.set()
+        _, camera = self.run_monitor(lambda t: [face(OWNER_VEC)], 10, interval_ms=1000, tracking=tracking)
+        # Every frame after the warmup, which reads more slowly, is analyzed.
+        self.assertGreaterEqual(camera.reads, (10 - WARMUP_S) / camera.period - 1)
 
     def test_interval_below_frame_period_is_limited_by_the_camera(self):
         _, camera = self.run_monitor(lambda t: [face(OWNER_VEC)], 10, interval_ms=1)

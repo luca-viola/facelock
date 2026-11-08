@@ -47,7 +47,9 @@ gsettings --schemadir "$TARGET/schemas" set org.gnome.shell.extensions.faceguard
 
 echo "Installed to $TARGET, using $PYTHON"
 if gnome-extensions list 2>/dev/null | grep -qx "$UUID"; then
-    echo "Next: gnome-extensions disable $UUID && gnome-extensions enable $UUID"
+    # GNOME Shell keeps an extension's code in memory, so disabling and enabling it
+    # isn't enough for an update.
+    echo "Next: log out and back in to load the new version."
 else
     echo "Next: log out and back in, then run: gnome-extensions enable $UUID"
 fi

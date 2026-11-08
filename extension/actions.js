@@ -1,13 +1,27 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import {Eyes} from './eyes.js';
+
 // Carries out what a trigger from the daemon asks for.
 export class Actions {
-    constructor(settings) {
+    // setTracking(true) asks the daemon to snap at full speed, for the eyes to follow.
+    constructor(settings, setTracking) {
         this._settings = settings;
+        this._setTracking = setTracking;
         this._returnWorkspace = null;
+        this._eyes = null;
+        this._intruderAt = {x: 0.5, y: 0.5};
+        this._minimized = new Set();
+    }
+
+    // Leaves minimized windows minimized, which is the safe side after a lock.
+    destroy() {
+        this.closeEyes();
+        this._forgetMinimized();
     }
 
     lock() {
@@ -19,6 +33,7 @@ export class Actions {
     }
 
     intruder(otherFaces) {
+        this._minimizeApps();
         switch (this._settings.get_string('intruder-action')) {
         case 'lock':
             this.lock();
@@ -32,10 +47,84 @@ export class Actions {
         case 'notify':
             Main.notify('Face Guard', 'Someone else is looking at your screen.');
             break;
+        case 'eyes':
+            this._showEyes();
+            break;
         }
     }
 
+    // Where the other face is in the camera image, from 0 to 1 on each axis.
+    intruderAt(x, y) {
+        this._intruderAt = {x, y};
+        this._eyes?.lookAt(x, y);
+    }
+
+    closeEyes() {
+        if (!this._eyes)
+            return;
+        this._eyes.destroy();
+        this._eyes = null;
+        this._setTracking(false);
+    }
+
+    // Dismissing only closes the eyes. They come back because the daemon triggers
+    // once per episode, so the next trigger means the face left and returned.
+    _showEyes() {
+        if (this._eyes)
+            return;
+        this._eyes = new Eyes(() => this.closeEyes());
+        this._eyes.lookAt(this._intruderAt.x, this._intruderAt.y);
+        this._setTracking(true);
+    }
+
+    // Minimizes the chosen apps' windows on every workspace, remembering which ones
+    // this did so they can be restored. A failure mustn't stop the main action.
+    _minimizeApps() {
+        const appSystem = Shell.AppSystem.get_default();
+        for (const id of this._settings.get_strv('minimize-apps')) {
+            for (const window of appSystem.lookup_app(id)?.get_windows() ?? []) {
+                if (window.minimized || !window.can_minimize())
+                    continue;
+                try {
+                    window.minimize();
+                } catch (error) {
+                    console.error(`Face Guard: can't minimize a window of ${id}: ${error.message}`);
+                    continue;
+                }
+                this._minimized.add(window);
+                // Forgets windows that close, or that the user restores themselves.
+                window.connectObject(
+                    'unmanaged', () => this._forget(window),
+                    'notify::minimized', () => {
+                        if (!window.minimized)
+                            this._forget(window);
+                    }, this);
+            }
+        }
+    }
+
+    _forget(window) {
+        window.disconnectObject(this);
+        this._minimized.delete(window);
+    }
+
+    _forgetMinimized() {
+        for (const window of [...this._minimized])
+            this._forget(window);
+    }
+
+    _restoreApps() {
+        const windows = [...this._minimized];
+        this._forgetMinimized();
+        if (!this._settings.get_boolean('minimize-restore'))
+            return;
+        for (const window of windows)
+            window.unminimize();
+    }
+
     clear() {
+        this.closeEyes();
+        this._restoreApps();
         if (this._returnWorkspace === null)
             return;
         const {target, previous} = this._returnWorkspace;

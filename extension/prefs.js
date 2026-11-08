@@ -11,6 +11,7 @@ const ACTIONS = [
     ['workspace', 'Switch workspace'],
     ['command', 'Run a command'],
     ['notify', 'Show a notification'],
+    ['eyes', 'Show giant eyes'],
 ];
 
 // Reads a daemon's JSON-line events, calling onEvent for each one.
@@ -53,6 +54,7 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
         page.add(this._buildCameraGroup());
         page.add(this._buildDetectionGroup());
         page.add(this._buildActionGroup());
+        page.add(this._buildMinimizeGroup(window));
         page.add(this._buildAdvancedGroup());
     }
 
@@ -103,10 +105,20 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
     _refreshReference(message = null) {
         const path = this._referencePath();
         const exists = GLib.file_test(path, GLib.FileTest.EXISTS);
-        this._referencePicture.visible = exists;
-        if (exists)
-            this._referencePicture.set_paintable(Gdk.Texture.new_from_filename(path));
-        this._referenceRow.title = message ?? (exists ? 'Reference image is set' : 'No reference image yet');
+        let status = exists ? 'Reference image is set' : 'No reference image yet';
+        let texture = null;
+        if (exists) {
+            // A damaged file must not stop the window opening, since this is where
+            // a new reference gets set.
+            try {
+                texture = Gdk.Texture.new_from_filename(path);
+            } catch {
+                status = 'The reference image can\'t be read. Set a new one.';
+            }
+        }
+        this._referencePicture.visible = texture !== null;
+        this._referencePicture.set_paintable(texture);
+        this._referenceRow.title = message ?? status;
     }
 
     _chooseFile(window) {
@@ -376,6 +388,105 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
         });
         syncVisible();
         return group;
+    }
+
+    /// --- APPS TO MINIMIZE --- ///
+    _buildMinimizeGroup(window) {
+        const group = new Adw.PreferencesGroup({
+            title: 'Minimize apps',
+            description: 'Also minimizes these apps\' windows when someone else appears, whatever the action above.',
+        });
+        const add = new Gtk.Button({
+            icon_name: 'list-add-symbolic',
+            tooltip_text: 'Add App',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['flat'],
+        });
+        add.connect('clicked', () => this._openAppChooser(window));
+        group.set_header_suffix(add);
+
+        const restore = new Adw.SwitchRow({title: 'Restore once they\'ve gone'});
+        this._settings.bind('minimize-restore', restore, 'active', Gio.SettingsBindFlags.DEFAULT);
+        group.add(restore);
+
+        let rows = [];
+        const refresh = () => {
+            rows.forEach(row => group.remove(row));
+            rows = this._settings.get_strv('minimize-apps').map(id => this._appRow(id));
+            rows.forEach(row => group.add(row));
+            restore.visible = rows.length > 0;
+        };
+        this._settings.connect('changed::minimize-apps', refresh);
+        refresh();
+        return group;
+    }
+
+    _appRow(id) {
+        const info = Gio.DesktopAppInfo.new(id);
+        const row = new Adw.ActionRow({
+            title: GLib.markup_escape_text(info?.get_display_name() ?? id, -1),
+            subtitle: info ? '' : 'Not installed',
+        });
+        row.add_prefix(new Gtk.Image({
+            gicon: info?.get_icon() ?? Gio.ThemedIcon.new('application-x-executable'),
+            pixel_size: 32,
+        }));
+        const remove = new Gtk.Button({
+            icon_name: 'user-trash-symbolic',
+            tooltip_text: 'Remove',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['flat'],
+        });
+        remove.connect('clicked', () => this._settings.set_strv(
+            'minimize-apps', this._settings.get_strv('minimize-apps').filter(other => other !== id)));
+        row.add_suffix(remove);
+        return row;
+    }
+
+    _openAppChooser(window) {
+        const chosen = new Set(this._settings.get_strv('minimize-apps'));
+        const apps = Gio.AppInfo.get_all()
+            .filter(app => app.should_show() && app.get_id() && !chosen.has(app.get_id()))
+            .sort((a, b) => a.get_display_name().localeCompare(b.get_display_name()));
+
+        const search = new Gtk.SearchEntry({placeholder_text: 'Search apps', hexpand: true});
+        const list = new Gtk.ListBox({
+            selection_mode: Gtk.SelectionMode.NONE,
+            css_classes: ['boxed-list'],
+            margin_top: 12,
+            margin_bottom: 12,
+            margin_start: 12,
+            margin_end: 12,
+            valign: Gtk.Align.START,
+        });
+        const dialog = new Adw.Dialog({title: 'Add App', content_width: 420, content_height: 560});
+        for (const app of apps) {
+            const row = new Adw.ActionRow({
+                title: GLib.markup_escape_text(app.get_display_name(), -1),
+                activatable: true,
+            });
+            row.add_prefix(new Gtk.Image({
+                gicon: app.get_icon() ?? Gio.ThemedIcon.new('application-x-executable'),
+                pixel_size: 32,
+            }));
+            row._name = app.get_display_name().toLowerCase();
+            row.connect('activated', () => {
+                this._settings.set_strv('minimize-apps', [...chosen, app.get_id()]);
+                dialog.close();
+            });
+            list.append(row);
+        }
+        list.set_filter_func(row => row._name.includes(search.text.toLowerCase()));
+        search.connect('search-changed', () => list.invalidate_filter());
+
+        const header = new Adw.HeaderBar({title_widget: search});
+        const toolbar = new Adw.ToolbarView({
+            content: new Gtk.ScrolledWindow({child: list, vexpand: true}),
+        });
+        toolbar.add_top_bar(header);
+        dialog.child = toolbar;
+        dialog.present(window);
+        search.grab_focus();
     }
 
     _buildAdvancedGroup() {

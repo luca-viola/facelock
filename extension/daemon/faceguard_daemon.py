@@ -4,7 +4,8 @@
 Talks to its parent over JSON lines on stdout and exits when stdin closes, so it
 can't outlive the shell and leave the camera on. Modes:
 
-  (default)        watch the camera and report status and triggers
+  (default)        watch the camera and report status and triggers; "track" on
+                   stdin snaps at the camera's framerate until "untrack"
   --list-cameras   print the available cameras
   --enroll SRC     validate an image and store it as the reference face
   --capture        stream preview frames until "snap" arrives on stdin
@@ -275,19 +276,27 @@ def face_size(face):
 
 
 def classify_faces(faces, reference, match_threshold, min_face_px):
-    """Returns (owner present, count of other faces, best match score or None).
+    """Returns (owner present, the other faces, best match score or None).
 
     Only the best match can be the owner, so a second face scoring above the
     threshold still counts as another person.
     """
     candidates = [face for face in faces if face_size(face) >= min_face_px]
     if not candidates:
-        return False, 0, None
+        return False, [], None
     scores = [float(face.normed_embedding.dot(reference)) for face in candidates]
     best = max(scores)
     if best >= match_threshold:
-        return True, len(candidates) - 1, best
-    return False, len(candidates), best
+        owner = scores.index(best)
+        return True, candidates[:owner] + candidates[owner + 1:], best
+    return False, candidates, best
+
+
+def face_center(face, frame):
+    """Returns where a face is in the frame, from 0 to 1 on each axis."""
+    x1, y1, x2, y2 = face.bbox
+    height, width = frame.shape[:2]
+    return float((x1 + x2) / 2 / width), float((y1 + y2) / 2 / height)
 
 
 def load_reference(analyzer, path):
@@ -307,8 +316,13 @@ def load_reference(analyzer, path):
 
 
 ### --- MONITOR MODE --- ###
-def monitor(camera, analyzer, reference, policy, emit, config, clock=time.monotonic, sleep=time.sleep):
-    """Runs the watch loop until the camera fails (raises) or forever."""
+def monitor(camera, analyzer, reference, policy, emit, config, clock=time.monotonic, sleep=time.sleep,
+            tracking=None):
+    """Runs the watch loop until the camera fails (raises) or forever.
+
+    While the tracking event is set, it snaps as fast as the camera delivers frames,
+    so something following the other face can keep up.
+    """
     interval_s = config["interval_ms"] / 1000
     warmup_until = clock() + WARMUP_S
     last_status = None
@@ -323,8 +337,15 @@ def monitor(camera, analyzer, reference, policy, emit, config, clock=time.monoto
             continue
 
         faces = analyzer.faces(frame)
-        owner, others, score = classify_faces(
+        owner, other_faces, score = classify_faces(
             faces, reference, config["match_threshold"], config["min_face_px"])
+        others = len(other_faces)
+
+        # Sent before any trigger, so an action can use it straight away. Without a
+        # match, the "other" face may be the owner's own at a bad angle.
+        if owner and other_faces:
+            x, y = face_center(max(other_faces, key=face_size), frame)
+            emit("intruder_at", x=round(x, 3), y=round(y, 3))
 
         now = clock()
         processed.append(now)
@@ -341,6 +362,8 @@ def monitor(camera, analyzer, reference, policy, emit, config, clock=time.monoto
             last_status = state
             last_status_at = now
 
+        if tracking is not None and tracking.is_set():
+            continue
         remaining = interval_s - (clock() - started)
         if remaining > 0:
             sleep(remaining)
@@ -358,7 +381,9 @@ def watch_stdin(on_line=None, on_close=lambda: os._exit(0)):
 
 
 def run_monitor(args, emit):
-    watch_stdin()
+    tracking = threading.Event()
+    commands = {"track": tracking.set, "untrack": tracking.clear}
+    watch_stdin(lambda line: commands.get(line, lambda: None)())
     if not os.path.exists(args.reference):
         raise GuardError("no_reference", "No reference image has been set", retryable=False)
     analyzer = load_analyzer(args.detection_threshold, emit)
@@ -370,7 +395,8 @@ def run_monitor(args, emit):
         "match_threshold": args.match_threshold,
         "min_face_px": args.min_face_px,
     }
-    monitor(camera, analyzer, reference, Policy(args.absence_grace, args.intruder_grace), emit, config)
+    monitor(camera, analyzer, reference, Policy(args.absence_grace, args.intruder_grace), emit, config,
+            tracking=tracking)
 
 
 ### --- ENROLLMENT --- ###

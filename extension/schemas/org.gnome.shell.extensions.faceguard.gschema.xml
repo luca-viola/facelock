@@ -45,6 +45,7 @@
         <choice value="command"/>
         <choice value="workspace"/>
         <choice value="notify"/>
+        <choice value="eyes"/>
       </choices>
       <default>'lock'</default>
       <summary>What to do when another face appears</summary>
@@ -61,6 +62,14 @@
     <key name="return-on-clear" type="b">
       <default>true</default>
       <summary>Return to the previous workspace once the other face has gone</summary>
+    </key>
+    <key name="minimize-apps" type="as">
+      <default>[]</default>
+      <summary>Desktop file IDs of apps whose windows are minimized when another face appears</summary>
+    </key>
+    <key name="minimize-restore" type="b">
+      <default>true</default>
+      <summary>Restore the minimized windows once the other face has gone</summary>
     </key>
     <key name="python-path" type="s">
       <default>''</default>

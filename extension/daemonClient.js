@@ -52,6 +52,15 @@ export class DaemonClient {
         this._onEvent(message);
     }
 
+    // Sends one command line to the daemon. It may have just exited, which is fine.
+    send(line) {
+        try {
+            this._process.get_stdin_pipe().write_bytes(new GLib.Bytes(`${line}\n`), null);
+        } catch (error) {
+            console.warn(`Face Guard: can't send "${line}" to the daemon: ${error.message}`);
+        }
+    }
+
     stop() {
         this._cancellable.cancel();
         this._process.force_exit();
