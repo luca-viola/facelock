@@ -68,10 +68,16 @@ grace period starts over.
   | buffalo_l (default) | 450 MB, 100 ms | 670 MiB, 1.1 GB, 19 ms |
   | buffalo_m | 460 MB, 66 ms | 580 MiB, 1.1 GB, 13 ms |
   | buffalo_sc | 230 MB, 13 ms | 260 MiB, 1.1 GB, 4 ms |
+  | dlib, HOG detector | 120 MB, 57 ms | CPU only |
+  | dlib, CNN detector | 200 MB, 620 ms | CPU only |
 
   The GPU's extra memory is NVIDIA's runtime, not the models, so the CPU is the default.
-  **Use GPU** is greyed out when no usable GPU is found. Smaller models tell faces
-  apart less reliably.
+  **Use GPU** is greyed out when no usable GPU is found, or for a model that can't use
+  it. Smaller models tell faces apart less reliably. dlib's HOG detector only finds
+  faces turned towards the camera and at least about 80 pixels across; its CNN detector
+  also finds turned faces but takes about 0.6 s per snap. The dlib models download to
+  `~/.local/share/faceguard/models` and appear in Settings only when the `dlib` package
+  is installed in Face Guard's Python.
 - **Snap rate:** the daemon only analyzes frames the camera has newly delivered, so
   the interval can't go faster than the camera's real framerate.
 - **Automatic camera:** picks the first physical camera and skips virtual ones such

@@ -19,6 +19,8 @@
         <choice value="buffalo_l"/>
         <choice value="buffalo_m"/>
         <choice value="buffalo_sc"/>
+        <choice value="dlib_hog"/>
+        <choice value="dlib_cnn"/>
       </choices>
       <default>'buffalo_l'</default>
       <summary>Face-recognition model</summary>

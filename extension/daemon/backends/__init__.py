@@ -37,7 +37,7 @@ def _insightface(pack, label, download_note):
         download_note=download_note,
         default_match_threshold=0.4,
         uses_detection_threshold=True,
-        installed=lambda: True,  # Face Guard's environment always has it
+        installed=insightface_backend.installed,
         can_use_gpu=onnx_sessions.cuda_provider_available,
         present=lambda: insightface_backend.pack_present(pack),
         create=lambda detection_threshold, compute: insightface_backend.InsightFaceBackend(
@@ -45,10 +45,29 @@ def _insightface(pack, label, download_note):
     )
 
 
+def _dlib(detector, label):
+    from . import dlib_backend
+
+    return Model(
+        id=f"dlib_{detector}",
+        label=label,
+        download_note="about 30 MB",
+        default_match_threshold=0.4,
+        # dlib's detectors have no confidence on the same scale as the setting.
+        uses_detection_threshold=False,
+        installed=dlib_backend.installed,
+        can_use_gpu=lambda: False,  # Face Guard's environment has the CPU build
+        present=lambda: dlib_backend.files_present(detector),
+        create=lambda _detection_threshold, _compute: dlib_backend.DlibBackend(detector),
+    )
+
+
 MODELS = {model.id: model for model in (
     _insightface("buffalo_l", "buffalo_l, large", "about 280 MB"),
     _insightface("buffalo_m", "buffalo_m, medium", "about 270 MB"),
     _insightface("buffalo_sc", "buffalo_sc, small", "about 15 MB"),
+    _dlib("hog", "dlib, HOG detector"),
+    _dlib("cnn", "dlib, CNN detector"),
 )}
 DEFAULT_MODEL = "buffalo_l"
 

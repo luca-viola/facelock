@@ -2,6 +2,7 @@
 
 import contextlib
 import glob
+import importlib.util
 import os
 import sys
 
@@ -17,6 +18,10 @@ PACKS = {
     "buffalo_m": ("det_2.5g.onnx", "w600k_r50.onnx"),
     "buffalo_sc": ("det_500m.onnx", "w600k_mbf.onnx"),
 }
+
+
+def installed():
+    return importlib.util.find_spec("insightface") is not None
 
 
 def _find(pack, filename):
