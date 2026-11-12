@@ -14,16 +14,24 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "extension", "d
 
 import numpy as np
 
-from faceguard_daemon import (
-    GuardError, WARMUP_S, classify_faces, face_center, load_analyzer, models_present, monitor)
+from backends import DetectedFace, Model, load_backend
+from backends.insightface_backend import pack_present
+from camera import WARMUP_S
+from errors import GuardError
+from monitor import WatchSettings, monitor
 from policy import Policy
+from recognition import classify_faces
 
 OWNER_VEC = np.array([1.0, 0.0])
 STRANGER_VEC = np.array([0.0, 1.0])
 
 
 def face(vector, size=100, x=0, y=0):
-    return SimpleNamespace(normed_embedding=vector, bbox=[x, y, x + size, y + size])
+    return DetectedFace(box=(x, y, x + size, y + size), embedding=vector)
+
+
+def cosine(a, b):
+    return float(a.dot(b))
 
 
 class PolicyTests(unittest.TestCase):
@@ -88,7 +96,7 @@ class PolicyTests(unittest.TestCase):
 
 class ClassifyTests(unittest.TestCase):
     def classify(self, faces):
-        owner, others, score = classify_faces(faces, OWNER_VEC, 0.4, 40)
+        owner, others, score = classify_faces(faces, OWNER_VEC, cosine, 0.4, 40)
         return owner, len(others), score
 
     def test_no_faces(self):
@@ -111,12 +119,11 @@ class ClassifyTests(unittest.TestCase):
 
     def test_others_exclude_only_the_owner(self):
         stranger = face(STRANGER_VEC)
-        _, others, _ = classify_faces([stranger, face(OWNER_VEC)], OWNER_VEC, 0.4, 40)
+        _, others, _ = classify_faces([stranger, face(OWNER_VEC)], OWNER_VEC, cosine, 0.4, 40)
         self.assertEqual(others, [stranger])
 
     def test_face_center_is_relative_to_the_frame(self):
-        frame = SimpleNamespace(shape=(720, 1280, 3))
-        self.assertEqual(face_center(face(STRANGER_VEC, size=100, x=590, y=310), frame), (0.5, 0.5))
+        self.assertEqual(face(STRANGER_VEC, size=100, x=590, y=310).center(1280, 720), (0.5, 0.5))
 
 
 class StopLoop(Exception):
@@ -152,10 +159,14 @@ class FakeCamera:
         return 1 / self.period
 
 
-class FakeAnalyzer:
+class FakeBackend:
+    compute = "cpu"
+
     @staticmethod
     def faces(frame):
         return frame.faces
+
+    similarity = staticmethod(cosine)
 
 
 class MonitorTests(unittest.TestCase):
@@ -163,11 +174,11 @@ class MonitorTests(unittest.TestCase):
         clock = FakeClock()
         camera = FakeCamera(clock, scene, end)
         events = []
-        config = {"interval_ms": interval_ms, "match_threshold": 0.4, "min_face_px": 40}
+        settings = WatchSettings(interval_ms=interval_ms, match_threshold=0.4, min_face_px=40)
         with self.assertRaises(StopLoop):
-            monitor(camera, FakeAnalyzer(), OWNER_VEC, Policy(absence, intruder),
+            monitor(camera, FakeBackend(), OWNER_VEC, Policy(absence, intruder),
                     lambda event, **fields: events.append((clock.now, event, fields)),
-                    config, clock=clock, sleep=clock.sleep, tracking=tracking)
+                    settings, clock=clock, sleep=clock.sleep, tracking=tracking)
         return events, camera
 
     def triggers(self, events):
@@ -226,34 +237,37 @@ class MonitorTests(unittest.TestCase):
         self.assertLessEqual(camera.reads, 10 / camera.period)
 
 
-class LoadAnalyzerTests(unittest.TestCase):
-    def load_broken(self):
+def fake_model(present, create):
+    return Model(id="buffalo_l", label="test", download_note="a few MB", present=lambda: present, create=create)
+
+
+class LoadBackendTests(unittest.TestCase):
+    def load_broken(self, present):
         def broken(_threshold):
             raise OSError("network down")
 
         with self.assertLogs("faceguard", "ERROR"), self.assertRaises(GuardError) as caught:
-            load_analyzer(0.5, lambda *a, **k: None, analyzer_class=broken)
+            load_backend(fake_model(present, broken), 0.5, lambda *a, **k: None)
         return caught.exception
 
     def test_failure_becomes_a_retryable_model_error(self):
-        with mock.patch("faceguard_daemon.models_present", return_value=True):
-            error = self.load_broken()
+        error = self.load_broken(present=True)
         self.assertEqual(error.code, "model")
         self.assertTrue(error.retryable)
         self.assertIn("network down", str(error))
 
     def test_failed_download_has_a_short_message(self):
-        with mock.patch("faceguard_daemon.models_present", return_value=False):
-            error = self.load_broken()
+        error = self.load_broken(present=False)
         self.assertEqual(str(error), "Couldn't download the buffalo_l face models. Check your connection.")
 
     def test_says_what_it_is_doing_before_loading(self):
         events = []
-        load_analyzer(0.5, lambda event, **fields: events.append(event), analyzer_class=lambda _: None)
+        load_backend(fake_model(True, lambda _: None), 0.5, lambda event, **fields: events.append(event))
         self.assertEqual(events, ["loading"])
 
     def test_missing_model_directory_is_not_present(self):
-        self.assertFalse(models_present("/nonexistent/faceguard"))
+        with mock.patch("backends.insightface_backend.MODEL_ROOT", "/nonexistent/faceguard"):
+            self.assertFalse(pack_present("buffalo_l"))
 
 
 if __name__ == "__main__":

@@ -42,7 +42,11 @@ split in two:
 | `extension/extension.js`, `actions.js`, `daemonClient.js` | Panel icon, starts and stops the daemon, carries out actions |
 | `extension/eyes.js`, `gaze.js` | The giant eyes overlay, and where its pupils point |
 | `extension/prefs.js` | Settings window and reference photo capture |
-| `extension/daemon/faceguard_daemon.py` | Camera and buffalo_l, sends JSON events to the extension |
+| `extension/daemon/faceguard_daemon.py` | Entry point: reads the arguments and connects the parts below |
+| `extension/daemon/camera.py`, `capture.py` | Finding and reading cameras, and the reference photo preview |
+| `extension/daemon/backends/` | Face-recognition models behind one small interface (`base.py`) |
+| `extension/daemon/recognition.py`, `monitor.py`, `enrollment.py` | Telling you from others, the watch loop, and storing the reference |
+| `extension/daemon/protocol.py`, `errors.py`, `files.py` | Messages to the extension, exit codes, and private files |
 | `extension/daemon/policy.py` | Decides when to trigger, with no camera or model dependency |
 
 The camera is off whenever the screen is locked: GNOME disables the extension on
