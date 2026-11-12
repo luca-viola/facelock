@@ -76,8 +76,9 @@ grace period starts over.
   it. Smaller models tell faces apart less reliably. dlib's HOG detector only finds
   faces turned towards the camera and at least about 80 pixels across; its CNN detector
   also finds turned faces but takes about 0.6 s per snap. The dlib models download to
-  `~/.local/share/faceguard/models` and appear in Settings only when the `dlib` package
-  is installed in Face Guard's Python.
+  `~/.local/share/faceguard/models`. The environment has dlib's CPU build: conda-forge's
+  GPU build needs a newer cuDNN than onnxruntime-gpu is installed with. With another
+  Python that lacks dlib, its models are left out of Settings.
 - **Snap rate:** the daemon only analyzes frames the camera has newly delivered, so
   the interval can't go faster than the camera's real framerate.
 - **Automatic camera:** picks the first physical camera and skips virtual ones such
