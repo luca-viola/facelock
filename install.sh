@@ -29,13 +29,19 @@ PYTHON="${1:-$(conda_env_python)}"
 "$PYTHON" -c 'import insightface, onnxruntime, cv2' 2>/dev/null ||
     fail "$PYTHON can't import insightface, onnxruntime and cv2. To repair the environment, run: conda env update --name $ENV_NAME --file $ROOT/environment.yml"
 
+DAEMON="$SOURCE/daemon/faceguard_daemon.py"
+
 # Done here rather than on first use, when it would look like a hang in the panel.
-echo "Preparing buffalo_l. The first time, this downloads the models and builds the GPU cache."
-PREPARED="$(PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$SOURCE/daemon/faceguard_daemon.py" --prepare | tail -n 1 || true)"
+# Other models are downloaded when first chosen in Settings.
+echo "Preparing the default model, buffalo_l. The first time, this downloads it."
+PREPARED="$(PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$DAEMON" --prepare | tail -n 1 || true)"
 case "$PREPARED" in
-    *'"prepared"'*CUDAExecutionProvider*) echo "buffalo_l is ready and using the GPU." ;;
-    *'"prepared"'*) echo "warning: buffalo_l is ready but running on the CPU, which is much slower." >&2 ;;
+    *'"prepared"'*) echo "buffalo_l is ready." ;;
     *) fail "couldn't prepare buffalo_l: ${PREPARED:-the daemon stopped without a message}" ;;
+esac
+case "$(PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$DAEMON" --list-models 2>/dev/null)" in
+    *'"gpu": "'*) echo "A usable GPU was found. Face Guard uses the CPU unless you turn on Use GPU in Settings." ;;
+    *) echo "No usable GPU was found, so Face Guard runs on the CPU." ;;
 esac
 
 mkdir -p "$TARGET"

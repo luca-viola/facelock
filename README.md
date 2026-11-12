@@ -17,11 +17,10 @@ photo of you passes as you. Your normal unlock password stays the real security.
 ```
 
 This creates the exact `faceguard` conda environment from `environment.yml` (several
-GB, and it needs a C++ compiler to build insightface), downloads the `buffalo_l`
-models to `~/.insightface/models` if they're missing, and warms up the GPU cache so
-the first start isn't slow. To use another environment, pass its python as an
-argument. It needs an NVIDIA GPU for full speed, and otherwise runs on the CPU with
-a warning.
+GB, and it needs a C++ compiler to build insightface) and downloads the default
+`buffalo_l` models to `~/.insightface/models` if they're missing. To use another
+environment, pass its python as an argument. Face Guard runs on the CPU by default; an
+NVIDIA GPU is optional.
 
 On Wayland, log out and back in once after the first install, then run:
 
@@ -59,7 +58,20 @@ grace period starts over.
   you being absent, not as an intruder. An intruder needs your face matched in the
   same frame.
 - **Tuning:** the panel menu shows the live match score. Set the match threshold
-  below your usual score and well above a stranger's.
+  below your usual score and well above a stranger's. Each model keeps its own
+  threshold, since their scores differ.
+- **Models and GPU:** choose the model in Settings. Other models download when first
+  used. Measured on an Intel Core i9-14900K and an RTX 5060 Ti, per snap of one face:
+
+  | Model | CPU: RAM, time | GPU: VRAM, RAM, time |
+  |---|---|---|
+  | buffalo_l (default) | 450 MB, 100 ms | 670 MiB, 1.1 GB, 19 ms |
+  | buffalo_m | 460 MB, 66 ms | 580 MiB, 1.1 GB, 13 ms |
+  | buffalo_sc | 230 MB, 13 ms | 260 MiB, 1.1 GB, 4 ms |
+
+  The GPU's extra memory is NVIDIA's runtime, not the models, so the CPU is the default.
+  **Use GPU** is greyed out when no usable GPU is found. Smaller models tell faces
+  apart less reliably.
 - **Snap rate:** the daemon only analyzes frames the camera has newly delivered, so
   the interval can't go faster than the camera's real framerate.
 - **Automatic camera:** picks the first physical camera and skips virtual ones such

@@ -14,7 +14,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "extension", "d
 
 import numpy as np
 
-from backends import DetectedFace, Model, load_backend
+try:
+    import insightface
+except ImportError:
+    insightface = None
+
+import faceguard_daemon
+from backends import MODELS, DetectedFace, Model, describe_models, load_backend
 from backends.insightface_backend import pack_present
 from camera import WARMUP_S
 from errors import GuardError
@@ -237,17 +243,19 @@ class MonitorTests(unittest.TestCase):
         self.assertLessEqual(camera.reads, 10 / camera.period)
 
 
-def fake_model(present, create):
-    return Model(id="buffalo_l", label="test", download_note="a few MB", present=lambda: present, create=create)
+def fake_model(present, create, installed=True):
+    return Model(id="buffalo_l", label="test", download_note="a few MB", default_match_threshold=0.4,
+                 uses_detection_threshold=True, installed=lambda: installed, can_use_gpu=lambda: True,
+                 present=lambda: present, create=create)
 
 
 class LoadBackendTests(unittest.TestCase):
     def load_broken(self, present):
-        def broken(_threshold):
+        def broken(_threshold, _compute):
             raise OSError("network down")
 
         with self.assertLogs("faceguard", "ERROR"), self.assertRaises(GuardError) as caught:
-            load_backend(fake_model(present, broken), 0.5, lambda *a, **k: None)
+            load_backend(fake_model(present, broken), 0.5, "cpu", lambda *a, **k: None)
         return caught.exception
 
     def test_failure_becomes_a_retryable_model_error(self):
@@ -262,12 +270,78 @@ class LoadBackendTests(unittest.TestCase):
 
     def test_says_what_it_is_doing_before_loading(self):
         events = []
-        load_backend(fake_model(True, lambda _: None), 0.5, lambda event, **fields: events.append(event))
+        load_backend(fake_model(True, lambda *_: None), 0.5, "cpu", lambda event, **fields: events.append(event))
         self.assertEqual(events, ["loading"])
+
+    def test_a_model_whose_library_is_missing_is_a_fatal_error(self):
+        with self.assertRaises(GuardError) as caught:
+            load_backend(fake_model(True, lambda *_: None, installed=False), 0.5, "cpu", lambda *a, **k: None)
+        self.assertFalse(caught.exception.retryable)
 
     def test_missing_model_directory_is_not_present(self):
         with mock.patch("backends.insightface_backend.MODEL_ROOT", "/nonexistent/faceguard"):
             self.assertFalse(pack_present("buffalo_l"))
+
+
+class ModelChoiceTests(unittest.TestCase):
+    def test_threshold_defaults_to_the_models_own(self):
+        args = faceguard_daemon.parse_args(["--model", "buffalo_sc"])
+        self.assertEqual(faceguard_daemon.match_threshold(args), MODELS["buffalo_sc"].default_match_threshold)
+
+    def test_a_given_threshold_wins(self):
+        args = faceguard_daemon.parse_args(["--match-threshold", "0.55"])
+        self.assertEqual(faceguard_daemon.match_threshold(args), 0.55)
+
+    def test_cpu_is_the_default(self):
+        self.assertEqual(faceguard_daemon.parse_args([]).compute, "cpu")
+
+    def test_gpu_falls_back_to_the_cpu_without_one(self):
+        args = faceguard_daemon.parse_args(["--compute", "gpu"])
+        chosen = []
+        fake = fake_model(True, lambda _threshold, compute: chosen.append(compute))
+        with mock.patch.dict(faceguard_daemon.MODELS, {"buffalo_l": fake}), \
+                mock.patch("faceguard_daemon.cuda_gpu_name", return_value=None), \
+                self.assertLogs("faceguard", "WARNING"):
+            faceguard_daemon.load(args, lambda *a, **k: None)
+        self.assertEqual(chosen, ["cpu"])
+
+    def test_settings_learn_there_is_no_gpu(self):
+        with mock.patch("backends.cuda_gpu_name", return_value=None):
+            described = describe_models()
+        self.assertIsNone(described["gpu"])
+        self.assertFalse(any(model["gpu"] for model in described["models"]))
+
+
+SAMPLE = os.path.join(os.path.dirname(insightface.__file__), "data", "images", "t1.jpg") if insightface else None
+
+
+@unittest.skipUnless(insightface, "needs insightface")
+class BackendContractTests(unittest.TestCase):
+    """Every downloaded model must behave the same way for the rest of Face Guard."""
+
+    def test_downloaded_models(self):
+        import cv2
+
+        image = cv2.imread(SAMPLE)
+        tested = 0
+        for model in MODELS.values():
+            if not (model.installed() and model.present()):
+                continue
+            with self.subTest(model=model.id):
+                backend = model.create(0.5, "cpu")
+                self.assertEqual(backend.compute, "cpu")
+                faces = backend.faces(image)
+                self.assertEqual(len(faces), 6)  # the sample photo has six people
+                height, width = image.shape[:2]
+                for face in faces:
+                    x1, y1, x2, y2 = face.box
+                    self.assertTrue(0 <= x1 < x2 <= width + 5 and 0 <= y1 < y2 <= height + 5)
+                    self.assertAlmostEqual(backend.similarity(face.embedding, face.embedding), 1.0, places=3)
+                others = [backend.similarity(faces[0].embedding, face.embedding) for face in faces[1:]]
+                self.assertLess(max(others), model.default_match_threshold)  # different people
+            tested += 1
+        if not tested:
+            self.skipTest("no model downloaded")
 
 
 if __name__ == "__main__":

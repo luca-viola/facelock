@@ -14,10 +14,22 @@
       <default>1000</default>
       <summary>Time between snaps in milliseconds; the camera's real framerate is the upper limit</summary>
     </key>
-    <key name="match-threshold" type="d">
-      <range min="0.1" max="0.95"/>
-      <default>0.4</default>
-      <summary>Minimum cosine similarity for a face to count as yours</summary>
+    <key name="model" type="s">
+      <choices>
+        <choice value="buffalo_l"/>
+        <choice value="buffalo_m"/>
+        <choice value="buffalo_sc"/>
+      </choices>
+      <default>'buffalo_l'</default>
+      <summary>Face-recognition model</summary>
+    </key>
+    <key name="use-gpu" type="b">
+      <default>false</default>
+      <summary>Run the model on the GPU, which is faster but uses several hundred MB more memory</summary>
+    </key>
+    <key name="match-thresholds" type="a{sd}">
+      <default>{}</default>
+      <summary>Minimum similarity for a face to count as yours, per model; a missing model uses its own default</summary>
     </key>
     <key name="detection-threshold" type="d">
       <range min="0.1" max="0.95"/>

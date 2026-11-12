@@ -147,7 +147,9 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
         try {
             runDaemon(
                 [...this._daemonBase(), '--enroll', sourcePath, '--reference', this._referencePath(),
-                    '--detection-threshold', String(this._settings.get_double('detection-threshold'))],
+                    '--detection-threshold', String(this._settings.get_double('detection-threshold')),
+                    '--model', this._settings.get_string('model'),
+                    '--compute', this._settings.get_boolean('use-gpu') ? 'gpu' : 'cpu'],
                 message => {
                     if (message.event === 'loading')
                         this._refreshReference(message.detail);
@@ -328,14 +330,90 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
             title: 'Recognition',
             description: 'The panel menu shows the live match score, to help you tune these.',
         });
-        group.add(this._spinRow(
-            'Match threshold',
-            'How closely a face must match yours. Higher is stricter.',
-            'match-threshold', 0.1, 0.95, 0.05, 2, true));
-        group.add(this._spinRow(
+
+        // Filled in by the daemon, which knows the models and whether there's a usable GPU.
+        // Until it answers, only the current model is listed and the GPU switch is off.
+        let models = [{id: this._settings.get_string('model'), label: this._settings.get_string('model'),
+            default_match_threshold: 0.4, uses_detection_threshold: true, gpu: false}];
+        let gpuName = null;
+        const current = () => models.find(m => m.id === this._settings.get_string('model')) ?? models[0];
+
+        const modelRow = new Adw.ComboRow({
+            title: 'Model',
+            subtitle: 'Smaller models are faster and use less memory, but tell faces apart less reliably.',
+            model: new Gtk.StringList({strings: models.map(m => m.label)}),
+        });
+        group.add(modelRow);
+
+        const gpuRow = new Adw.SwitchRow({title: 'Use GPU', subtitle: 'Checking for a GPU…', sensitive: false});
+        this._settings.bind('use-gpu', gpuRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        group.add(gpuRow);
+
+        const matchRow = new Adw.SpinRow({
+            title: 'Match threshold',
+            subtitle: 'How closely a face must match yours. Higher is stricter. Kept separately for each model.',
+            digits: 2,
+            adjustment: new Gtk.Adjustment({lower: 0.1, upper: 0.95, step_increment: 0.05}),
+        });
+        group.add(matchRow);
+
+        const detectionRow = this._spinRow(
             'Detection threshold',
             'How confident the detector must be that something is a face.',
-            'detection-threshold', 0.1, 0.95, 0.05, 2, true));
+            'detection-threshold', 0.1, 0.95, 0.05, 2, true);
+        group.add(detectionRow);
+
+        // Shows the chosen model's own values. Set while loading them, so they aren't saved back.
+        let loading = false;
+        const thresholds = () => this._settings.get_value('match-thresholds').deepUnpack();
+        const showModel = () => {
+            const model = current();
+            loading = true;
+            modelRow.selected = Math.max(0, models.indexOf(model));
+            matchRow.value = thresholds()[model.id] ?? model.default_match_threshold;
+            loading = false;
+            detectionRow.visible = model.uses_detection_threshold;
+            gpuRow.sensitive = model.gpu;
+            if (gpuName === null)
+                gpuRow.subtitle = 'No usable GPU found, so it runs on the CPU.';
+            else if (!model.gpu)
+                gpuRow.subtitle = `${model.label} can't use ${gpuName}.`;
+            else
+                gpuRow.subtitle = `${gpuName}: faster, but uses several hundred MB more memory.`;
+        };
+        modelRow.connect('notify::selected', () => {
+            const model = models[modelRow.selected];
+            if (!loading && model)
+                this._settings.set_string('model', model.id);
+        });
+        matchRow.connect('notify::value', () => {
+            if (loading)
+                return;
+            const values = thresholds();
+            values[current().id] = matchRow.value;
+            this._settings.set_value('match-thresholds', new GLib.Variant('a{sd}', values));
+        });
+        this._settings.connect('changed::model', showModel);
+        showModel();
+
+        try {
+            runDaemon([...this._daemonBase(), '--list-models'], message => {
+                if (message.event !== 'models')
+                    return;
+                gpuName = message.gpu;
+                models = message.models.filter(m => m.installed).map(m => ({
+                    ...m,
+                    label: m.downloaded ? m.label : `${m.label} (downloads when used)`,
+                }));
+                loading = true;
+                modelRow.model = new Gtk.StringList({strings: models.map(m => m.label)});
+                loading = false;
+                showModel();
+            });
+        } catch (error) {
+            console.warn(`Face Guard: can't list the models: ${error.message}`);
+        }
+
         group.add(this._spinRow(
             'Smallest face',
             'Ignore faces smaller than this many pixels, such as people far away.',

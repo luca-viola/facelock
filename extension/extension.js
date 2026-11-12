@@ -17,10 +17,8 @@ const BACKOFF_MIN_S = 2;
 const BACKOFF_MAX_S = 60;
 const ENROLL_TIMEOUT_S = 180; // Monitoring must come back even if preferences crashes.
 
-const CPU_PROVIDER = 'CPUExecutionProvider';
-
 const RESTART_KEYS = [
-    'camera-device', 'interval-ms', 'match-threshold', 'detection-threshold',
+    'camera-device', 'interval-ms', 'model', 'use-gpu', 'match-thresholds', 'detection-threshold',
     'min-face-px', 'absence-grace-s', 'intruder-grace-s', 'python-path', 'reference-stamp',
 ];
 
@@ -119,17 +117,22 @@ export default class FaceGuardExtension extends Extension {
 
     _daemonArgv() {
         const s = this._settings;
+        const model = s.get_string('model');
+        const threshold = s.get_value('match-thresholds').deepUnpack()[model];
         return [
             s.get_string('python-path') || 'python3',
             GLib.build_filenamev([this.path, 'daemon', 'faceguard_daemon.py']),
             '--reference', this._referencePath(),
             '--device', s.get_string('camera-device'),
             '--interval-ms', String(s.get_int('interval-ms')),
-            '--match-threshold', String(s.get_double('match-threshold')),
             '--detection-threshold', String(s.get_double('detection-threshold')),
             '--min-face-px', String(s.get_int('min-face-px')),
             '--absence-grace', String(s.get_double('absence-grace-s')),
             '--intruder-grace', String(s.get_double('intruder-grace-s')),
+            '--model', model,
+            '--compute', s.get_boolean('use-gpu') ? 'gpu' : 'cpu',
+            // Without one set for this model, the daemon uses the model's own default.
+            ...threshold === undefined ? [] : ['--match-threshold', String(threshold)],
         ];
     }
 
@@ -198,9 +201,10 @@ export default class FaceGuardExtension extends Extension {
         case 'ready':
             this._lastError = null;
             this._backoffS = BACKOFF_MIN_S;
-            this._onCpu = message.provider === CPU_PROVIDER;
-            this._indicator.setStatus('starting', this._onCpu ? 'Watching, on the CPU' : 'Watching');
-            this._warnIfOnCpu();
+            this._running = `${message.model} on the ${message.compute.toUpperCase()}`;
+            this._indicator.setStatus('starting', `Watching with ${this._running}`);
+            if (message.requested === 'gpu' && message.compute === 'cpu')
+                this._warnGpuUnavailable();
             break;
         case 'status':
             this._showStatus(message);
@@ -219,8 +223,7 @@ export default class FaceGuardExtension extends Extension {
 
     _showStatus({state, others, score, camera_fps: fps, snap_rate: rate}) {
         const match = score === null ? 'no face seen' : `match ${score.toFixed(2)}`;
-        const device = this._onCpu ? ', on the CPU' : '';
-        const speed = `${rate.toFixed(1)} snaps/s, camera ${fps.toFixed(0)} fps${device}`;
+        const speed = `${rate.toFixed(1)} snaps/s, camera ${fps.toFixed(0)} fps · ${this._running}`;
         const summary = {
             owner: 'You\'re here',
             absent: 'You\'re not recognized',
@@ -230,12 +233,12 @@ export default class FaceGuardExtension extends Extension {
     }
 
     // Once per login, because the daemon restarts after every unlock.
-    _warnIfOnCpu() {
-        if (!this._onCpu || this._cpuWarned)
+    _warnGpuUnavailable() {
+        if (this._gpuWarned)
             return;
-        this._cpuWarned = true;
+        this._gpuWarned = true;
         Main.notify('Face Guard is running on the CPU',
-            'The GPU couldn\'t be used, so snaps are slower and use more power. Check the Python setting and your CUDA setup.');
+            'Use GPU is on, but the GPU couldn\'t be used. Check your NVIDIA driver and CUDA setup.');
     }
 
     _onTrigger({kind, others}) {

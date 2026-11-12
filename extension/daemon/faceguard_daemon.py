@@ -7,18 +7,25 @@ can't outlive the shell and leave the camera on. Modes:
   (default)        watch the camera and report status and triggers; "track" on
                    stdin snaps at the camera's framerate until "untrack"
   --list-cameras   print the available cameras
+  --list-models    print the face models and whether a usable GPU is present
   --enroll SRC     validate an image and store it as the reference face
   --capture        stream preview frames until "snap" arrives on stdin
   --prepare        download the models if needed and warm them up
 """
 
+import os
+
+# Without these, NumPy and OpenCV each start a thread per core, which this
+# daemon never uses. They must be set before either is imported.
+for _variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_variable, "1")
+
 import argparse
 import logging
-import os
 import sys
 import threading
 
-from backends import CPU, MODELS, load_backend
+from backends import CPU, DEFAULT_MODEL, GPU, MODELS, cuda_gpu_name, describe_models, load_backend
 from camera import list_cameras, open_camera
 from capture import capture
 from enrollment import enroll
@@ -30,8 +37,14 @@ from recognition import load_reference
 
 log = logging.getLogger("faceguard")
 
-# The extension still identifies the CPU by onnxruntime's provider name.
-PROVIDER_NAMES = {CPU: "CPUExecutionProvider"}
+
+def load(args, emit):
+    """Loads the chosen model on the chosen hardware, using the CPU if there's no GPU."""
+    compute = args.compute
+    if compute == GPU and cuda_gpu_name() is None:
+        log.warning("No usable GPU found, so using the CPU")
+        compute = CPU
+    return load_backend(MODELS[args.model], args.detection_threshold, compute, emit)
 
 
 def run_monitor(args, emit):
@@ -40,37 +53,47 @@ def run_monitor(args, emit):
     watch_stdin(lambda line: commands.get(line, lambda: None)())
     if not os.path.exists(args.reference):
         raise GuardError("no_reference", "No reference image has been set", retryable=False)
-    backend = load_backend(MODELS["buffalo_l"], args.detection_threshold, emit)
+    backend = load(args, emit)
     reference = load_reference(backend, args.reference)
     camera = open_camera(args.device)
-    emit("ready", provider=PROVIDER_NAMES.get(backend.compute, "CUDAExecutionProvider"))
-    settings = WatchSettings(args.interval_ms, args.match_threshold, args.min_face_px)
+    emit("ready", model=args.model, compute=backend.compute, requested=args.compute)
+    settings = WatchSettings(args.interval_ms, match_threshold(args), args.min_face_px)
     policy = Policy(args.absence_grace, args.intruder_grace)
     monitor(camera, backend, reference, policy, emit, settings, tracking=tracking)
 
 
 def run_enroll(args, emit):
-    backend = load_backend(MODELS["buffalo_l"], args.detection_threshold, emit)
-    enroll(backend, args.enroll, args.reference, emit)
+    enroll(load(args, emit), args.enroll, args.reference, emit)
 
 
 def run_prepare(args, emit):
-    backend = load_backend(MODELS["buffalo_l"], args.detection_threshold, emit)
+    backend = load(args, emit)
     backend.warm_up()
-    emit("prepared", provider=PROVIDER_NAMES.get(backend.compute, "CUDAExecutionProvider"))
+    emit("prepared", model=args.model, compute=backend.compute)
+
+
+def match_threshold(args):
+    """The user's threshold for this model, or the model's own default."""
+    if args.match_threshold is not None:
+        return args.match_threshold
+    return MODELS[args.model].default_match_threshold
 
 
 def parse_args(argv=None):
     data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list-cameras", action="store_true")
+    parser.add_argument("--list-models", action="store_true")
     parser.add_argument("--enroll", metavar="SRC")
     parser.add_argument("--capture", action="store_true")
     parser.add_argument("--prepare", action="store_true")
     parser.add_argument("--reference", default=os.path.join(data_home, "faceguard", "reference.jpg"))
-    parser.add_argument("--device", default="auto")
+    parser.add_argument("--device", default="auto", help="camera, or auto for the first physical one")
+    parser.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL)
+    parser.add_argument("--compute", choices=(CPU, GPU), default=CPU)
     parser.add_argument("--interval-ms", type=int, default=1000)
-    parser.add_argument("--match-threshold", type=float, default=0.4)
+    parser.add_argument("--match-threshold", type=float, default=None,
+                        help="the model's own default if not given")
     parser.add_argument("--detection-threshold", type=float, default=0.5)
     parser.add_argument("--min-face-px", type=int, default=40)
     parser.add_argument("--absence-grace", type=float, default=10.0)
@@ -85,6 +108,8 @@ def main():
     try:
         if args.list_cameras:
             emit("cameras", cameras=list_cameras())
+        elif args.list_models:
+            emit("models", **describe_models())
         elif args.enroll:
             run_enroll(args, emit)
         elif args.capture:

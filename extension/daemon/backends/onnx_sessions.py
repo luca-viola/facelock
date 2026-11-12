@@ -1,0 +1,48 @@
+"""onnxruntime sessions set up to use as little memory and as few threads as possible.
+
+Measured with buffalo_l on an RTX 5060 Ti: the defaults started a thread per core
+for every model and an exhaustive cuDNN algorithm search, and the GPU runtime
+alone costs several hundred MB of RAM and VRAM. On the CPU these settings use
+about a third of the RAM, at about 0.1 s per snap.
+"""
+
+import os
+
+from .base import CPU, GPU
+
+CUDA_PROVIDER = "CUDAExecutionProvider"
+CPU_PROVIDER = "CPUExecutionProvider"
+CPU_THREADS = min(4, os.cpu_count() or 1)
+CUDA_OPTIONS = {
+    "cudnn_conv_algo_search": "HEURISTIC",  # the exhaustive search costs memory and startup time
+    "arena_extend_strategy": "kSameAsRequested",
+    "cudnn_conv_use_max_workspace": "0",
+}
+
+
+def cuda_provider_available():
+    import onnxruntime
+
+    return CUDA_PROVIDER in onnxruntime.get_available_providers()
+
+
+def create_session(path, compute):
+    """Returns (session, the compute it actually got), falling back to the CPU."""
+    import onnxruntime
+
+    options = onnxruntime.SessionOptions()
+    options.inter_op_num_threads = 1
+    options.enable_cpu_mem_arena = False
+    if compute == GPU and cuda_provider_available():
+        options.intra_op_num_threads = 1  # the GPU does the work
+        providers = [(CUDA_PROVIDER, CUDA_OPTIONS), CPU_PROVIDER]
+    else:
+        options.intra_op_num_threads = CPU_THREADS
+        # Prepacking keeps a second, rearranged copy of every weight.
+        options.add_session_config_entry("session.disable_prepacking", "1")
+        # Idle worker threads would otherwise spin, keeping extra cores busy for nothing.
+        options.add_session_config_entry("session.intra_op.allow_spinning", "0")
+        providers = [CPU_PROVIDER]
+    session = onnxruntime.InferenceSession(path, options, providers=providers)
+    actual = GPU if session.get_providers()[0] == CUDA_PROVIDER else CPU
+    return session, actual
