@@ -13,7 +13,7 @@ struct FaceGuardApp: App {
         MenuBarExtra {
             MenuView(controller: controller)
         } label: {
-            Image(systemName: controller.iconName)
+            Image(nsImage: controller.statusImage)
         }
         .menuBarExtraStyle(.window)
 

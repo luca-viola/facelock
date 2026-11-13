@@ -27,7 +27,7 @@ const ICONS = {
     starting: 'camera-web-symbolic',
     owner: 'security-high-symbolic',
     absent: 'security-low-symbolic',
-    intruder: 'security-medium-symbolic',
+    intruder: 'system-users-symbolic',
     error: 'dialog-warning-symbolic',
 };
 

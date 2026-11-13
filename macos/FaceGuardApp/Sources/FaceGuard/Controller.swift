@@ -81,16 +81,7 @@ final class Controller: ObservableObject {
         }
     }
 
-    var iconName: String {
-        switch phase {
-        case .off: return "eye.slash"
-        case .starting: return "eye"
-        case .owner: return "checkmark.shield"
-        case .absent: return "exclamationmark.shield"
-        case .intruder: return "person.2"
-        case .error: return "exclamationmark.triangle"
-        }
-    }
+    var statusImage: NSImage { StatusIcons.image(for: phase) }
 
     func refreshReference() {
         referenceExists = FileManager.default.fileExists(atPath: Paths.reference.path)
