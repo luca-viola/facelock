@@ -1,0 +1,10 @@
+# The face-recognition daemon, shared with the GNOME extension
+numpy==1.26.4
+onnxruntime
+opencv-python
+insightface
+# For the dlib models. Builds from source if there's no wheel: brew install cmake
+dlib
+# The menu bar app and the macOS camera and permission APIs
+rumps
+pyobjc-framework-AVFoundation
