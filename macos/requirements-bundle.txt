@@ -1,0 +1,28 @@
+# What the daemon needs, pinned to the versions it was tested with. build-python-env.sh installs
+# these (wheels only) into the Python that goes inside the app. insightface is installed after
+# them without its dependencies, because it asks for opencv-python and the headless build does
+# the same job without the GUI libraries. dlib is built separately, see build-python-env.sh.
+certifi==2026.10.23
+charset-normalizer==3.5.2
+flatbuffers==25.12.19
+idna==3.20
+ImageIO==2.38.1
+lazy-loader==0.6
+ml_dtypes==0.5.4
+networkx==3.7
+numpy==1.26.4
+onnx==1.23.2
+onnxruntime==1.31.1
+opencv-python-headless==4.11.0.86
+packaging==26.3
+pillow==13.0.0
+protobuf==7.36.2
+requests==2.34.2
+scikit-image==0.26.0
+scipy==1.17.1
+tifffile==2026.3.3
+tqdm==4.70.1
+# The daemon's macOS camera module lists cameras and checks the Camera permission through it.
+pyobjc-framework-AVFoundation==13.0
+typing_extensions==4.16.0
+urllib3==2.8.0

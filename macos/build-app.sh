@@ -26,14 +26,19 @@ find "$APP/Contents/Resources/daemon" -name __pycache__ -type d -prune -exec rm 
 
 cp "$ROOT/icon/FaceGuard.icns" "$APP/Contents/Resources/FaceGuard.icns"
 
-# The interpreter that has insightface, onnxruntime and opencv. A build to hand to others
-# (NO_PYTHON_PATH=1) must not carry a path that only exists on this Mac.
-if [ -n "${NO_PYTHON_PATH:-}" ]; then
+# The Python the daemon runs with. Normally the one built by build-python-env.sh goes inside the
+# app, so it works on a Mac with nothing installed. Without it, the app uses the venv here
+# (NO_PYTHON_PATH=1 leaves even that out, for a build whose Python is set in Settings).
+BUNDLED_PYTHON="$ROOT/python-env/python"
+if [ -x "$BUNDLED_PYTHON/bin/python3.12" ] && [ -z "${NO_BUNDLED_PYTHON:-}" ]; then
+    echo "Bundling Python…"
+    ditto "$BUNDLED_PYTHON" "$APP/Contents/Resources/python"
+elif [ -n "${NO_PYTHON_PATH:-}" ]; then
     echo "Not recording a Python path: it must be set in Settings, Advanced." >&2
 elif [ -x "$ROOT/.venv/bin/python" ]; then
     echo "$ROOT/.venv/bin/python" > "$APP/Contents/Resources/python-path.txt"
 else
-    echo "warning: no .venv found. Run 'make venv', or set the Python path in Settings." >&2
+    echo "warning: no bundled Python and no .venv. Run build-python-env.sh or 'make venv'." >&2
 fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -75,6 +80,24 @@ ENT
 # Notarization needs a secure timestamp, which an ad hoc signature can't have.
 TIMESTAMP=(--timestamp)
 [ "$IDENTITY" = "-" ] && TIMESTAMP=()
+
+# Every Mach-O file in the bundled Python has to be signed, with the hardened runtime. They are
+# signed before the app, and the interpreter gets the camera entitlement itself, because it is
+# the process that opens the camera.
+if [ -d "$APP/Contents/Resources/python" ]; then
+    echo "Signing the bundled Python…"
+    LIST="$(mktemp)"
+    find "$APP/Contents/Resources/python" -type f \( -name "*.so" -o -name "*.dylib" -o -perm +111 \) -print0 \
+        | xargs -0 file | grep "Mach-O" | sed -E 's/:[[:space:]]+Mach-O.*$//; s/ \(for architecture [^)]*\)$//' | sort -u > "$LIST"
+    grep -v "/bin/python" "$LIST" | tr '\n' '\0' \
+        | xargs -0 -n 20 -P 8 codesign --force --options runtime "${TIMESTAMP[@]}" --sign "$IDENTITY"
+    grep "/bin/python" "$LIST" | while read -r interpreter; do
+        codesign --force --options runtime "${TIMESTAMP[@]}" --entitlements "$ROOT/dist/FaceGuard.entitlements" \
+            --sign "$IDENTITY" "$interpreter"
+    done
+    rm -f "$LIST"
+fi
+
 codesign --force --options runtime "${TIMESTAMP[@]}" --entitlements "$ROOT/dist/FaceGuard.entitlements" \
     --sign "$IDENTITY" "$APP"
 echo "Built $APP, signed with: $IDENTITY"

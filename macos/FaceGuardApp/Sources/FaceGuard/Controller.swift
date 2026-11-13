@@ -158,6 +158,11 @@ final class Controller: ObservableObject {
     private func pythonPath() -> String {
         if !store.data.pythonPath.isEmpty { return store.data.pythonPath }
         if let path = ProcessInfo.processInfo.environment["FACEGUARD_PYTHON"], !path.isEmpty { return path }
+        // The Python inside the app, with everything the daemon needs (see build-python-env.sh).
+        if let url = Bundle.main.url(forResource: "python/bin/python3.12", withExtension: nil),
+           FileManager.default.isExecutableFile(atPath: url.path) {
+            return url.path
+        }
         // build-app.sh records the interpreter of the virtual environment it was built beside.
         if let url = Bundle.main.url(forResource: "python-path", withExtension: "txt"),
            let text = try? String(contentsOf: url, encoding: .utf8) {

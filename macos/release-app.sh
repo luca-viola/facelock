@@ -7,8 +7,8 @@
 #   xcrun notarytool store-credentials <profile> --apple-id <id> --team-id <team>
 # The profile name is taken from NOTARY_PROFILE (default: snappo-notary, the one Snappo uses).
 #
-# The app runs the Python daemon, so this build records no Python path: whoever uses it sets
-# one in Settings, under Advanced.
+# The app contains its own Python with everything the daemon needs, built by build-python-env.sh,
+# so it runs on a Mac with nothing installed.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
@@ -16,7 +16,8 @@ IDENTITY="${IDENTITY:-$(security find-identity -v -p codesigning | awk '/Develop
 PROFILE="${NOTARY_PROFILE:-snappo-notary}"
 [ -n "$IDENTITY" ] || { echo "error: no Developer ID Application certificate found" >&2; exit 1; }
 
-NO_PYTHON_PATH=1 ./build-app.sh "$IDENTITY"
+[ -x python-env/python/bin/python3.12 ] || { echo "error: run ./build-python-env.sh first" >&2; exit 1; }
+./build-app.sh "$IDENTITY"
 
 APP="dist/FaceGuard.app"
 ZIP="dist/FaceGuard.zip"

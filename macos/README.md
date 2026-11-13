@@ -11,13 +11,19 @@ A menu bar app that does what the GNOME extension does, with the same daemon
 ## The Swift app
 
 ```sh
-make venv       # the Python daemon's environment, once
-./build-app.sh  # builds and signs dist/FaceGuard.app
+./build-python-env.sh   # once: a relocatable Python with everything the daemon needs (about 420 MB)
+./build-app.sh          # builds and signs dist/FaceGuard.app, with that Python inside it
 open dist/FaceGuard.app
 ```
 
-The app finds the daemon's Python from the `.venv` it was built beside, or from **Advanced** in
-Settings. It's signed with your first Apple Development certificate, so the Camera and Automation
+The app carries its own Python (python-build-standalone from uv, plus the pinned packages in
+`requirements-bundle.txt`, dlib included), so it runs on a Mac with nothing installed. Building it
+needs `brew install uv cmake` and the Xcode command line tools, to compile dlib once. Everything
+is built for macOS 14 and Apple silicon, and the script fails if any binary links a library that
+isn't a system one. Without `python-env/`, the app falls back to the `.venv` it was built beside
+(`make venv`), or to the Python set under Advanced in Settings, which always wins.
+
+It's signed with your first Apple Development certificate, so the Camera and Automation
 permissions survive rebuilds. Pass another identity as the first argument to `build-app.sh`.
 
 ### Releasing
@@ -27,8 +33,9 @@ permissions survive rebuilds. Pass another identity as the first argument to `bu
 ```
 
 It needs notarytool credentials stored in the keychain (`NOTARY_PROFILE`, default `snappo-notary`).
-That build records no Python path, and the app still needs a Python with the packages in
-`requirements.txt`: set it under Advanced in Settings. The icon comes from `icon/make-icon.swift`.
+It signs every binary in the bundled Python (the interpreter also gets the camera entitlement,
+since it is the process that opens the camera), so run `./build-python-env.sh` first. The icon
+comes from `icon/make-icon.swift`.
 
 ## The Python app
 
@@ -61,7 +68,7 @@ log is `~/Library/Logs/FaceGuard.log`.
 ## Models
 
 `make venv` installs dlib too (it builds from source if there's no wheel, which needs
-`brew install cmake`), so the **dlib, HOG detector** and **dlib, CNN detector** models show up
+`brew install cmake`), and the app bundle has it built in, so the **dlib, HOG detector** and **dlib, CNN detector** models show up
 in Settings, and download about 30 MB the first time. Measured on an Apple silicon Mac, per snap
 of one face: HOG takes 57 ms and 140 MB; CNN takes 200 ms and about 1 GB. They run on the CPU.
 buffalo_l takes 77 ms on the CPU and 27 ms with CoreML, which uses more memory.
