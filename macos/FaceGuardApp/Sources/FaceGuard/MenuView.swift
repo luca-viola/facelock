@@ -22,19 +22,13 @@ struct MenuView: View {
             .fixedSize(horizontal: false, vertical: true)
 
             Divider()
-            Toggle("Watch camera", isOn: $store.data.enabled)
-                .toggleStyle(.switch)
-            Toggle(isOn: Binding(get: { controller.collaboration }, set: { controller.setCollaboration($0) })) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Allow collaboration")
-                    Text(controller.collaboration
-                         ? "Extra face actions are off. It still locks if you leave."
-                         : "Control-Option-C")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .toggleStyle(.switch)
+            SwitchRow(title: "Watch camera", isOn: $store.data.enabled)
+            SwitchRow(
+                title: "Allow collaboration",
+                subtitle: controller.collaboration
+                    ? "Extra face actions are off. It still locks if you leave."
+                    : "Control-Option-C",
+                isOn: Binding(get: { controller.collaboration }, set: { controller.setCollaboration($0) }))
             Divider()
             Button("Settings") {
                 NSApp.activate(ignoringOtherApps: true)
@@ -49,5 +43,33 @@ struct MenuView: View {
         }
         .padding(14)
         .frame(width: 340, alignment: .leading)
+    }
+}
+
+/// A label on the left and its switch on the right, like the GNOME panel menu's switch items.
+/// Clicking the label flips the switch too.
+struct SwitchRow: View {
+    let title: String
+    var subtitle: String?
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture { isOn.toggle() }
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+        }
     }
 }
