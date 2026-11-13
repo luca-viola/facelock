@@ -1,6 +1,5 @@
 """dlib: a HOG or CNN face detector, with dlib's ResNet face recognizer."""
 
-import importlib.util
 import os
 
 from .base import CPU, GPU, DetectedFace
@@ -20,7 +19,13 @@ DETECTION_WIDTH = {HOG: 1280, CNN: 960}
 
 
 def installed():
-    return importlib.util.find_spec("dlib") is not None
+    """Whether dlib can be imported. Being present isn't enough: a build that links a library
+    which isn't there is found by find_spec and then fails to load."""
+    try:
+        import dlib  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 def _path(filename):
