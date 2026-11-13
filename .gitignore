@@ -15,3 +15,9 @@ extension/schemas/gschemas.compiled
 .vscode/
 *.swp
 .DS_Store
+
+# macOS app
+macos/.venv/
+macos/build/
+macos/dist/
+macos/FaceGuardApp/.build/

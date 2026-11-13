@@ -31,6 +31,10 @@ gnome-extensions enable faceguard@lviola
 Open Settings from the shield icon in the top bar, set a reference image with
 **Take Photo** or **Choose File**, then turn on **Watch camera**.
 
+## macOS
+
+The `macos` folder has a menu bar app that uses the same daemon. See [macos/README.md](macos/README.md).
+
 ## How it works
 
 GNOME extensions run inside the shell and can't load a GPU model, so the work is
