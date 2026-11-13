@@ -300,13 +300,13 @@ class ModelChoiceTests(unittest.TestCase):
         chosen = []
         fake = fake_model(True, lambda _threshold, compute: chosen.append(compute))
         with mock.patch.dict(faceguard_daemon.MODELS, {"buffalo_l": fake}), \
-                mock.patch("faceguard_daemon.cuda_gpu_name", return_value=None), \
+                mock.patch("faceguard_daemon.gpu_name", return_value=None), \
                 self.assertLogs("faceguard", "WARNING"):
             faceguard_daemon.load(args, lambda *a, **k: None)
         self.assertEqual(chosen, ["cpu"])
 
     def test_settings_learn_there_is_no_gpu(self):
-        with mock.patch("backends.cuda_gpu_name", return_value=None):
+        with mock.patch("backends.gpu_name", return_value=None):
             described = describe_models()
         self.assertIsNone(described["gpu"])
         self.assertFalse(any(model["gpu"] for model in described["models"]))

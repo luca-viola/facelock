@@ -6,6 +6,7 @@ import time
 
 from camera import WARMUP_S, open_camera
 from files import private_dir, write_private
+from paths import runtime_home
 from protocol import watch_stdin
 
 PREVIEW_PERIOD_S = 0.1
@@ -19,8 +20,7 @@ def capture(device, emit):
     # Leaves the loop rather than exiting, so the preview of the user's face is removed.
     watch_stdin(lambda line: snap.set() if line == "snap" else None, closed.set)
 
-    base = os.environ.get("XDG_RUNTIME_DIR") or os.path.expanduser("~/.cache")
-    directory = private_dir(os.path.join(base, "faceguard"))
+    directory = private_dir(os.path.join(runtime_home(), "faceguard"))
     preview_path = os.path.join(directory, "preview.jpg")
     capture_path = os.path.join(directory, "capture.jpg")
 

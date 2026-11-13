@@ -25,12 +25,13 @@ import logging
 import sys
 import threading
 
-from backends import CPU, DEFAULT_MODEL, GPU, MODELS, cuda_gpu_name, describe_models, load_backend
+from backends import CPU, DEFAULT_MODEL, GPU, MODELS, gpu_name, describe_models, load_backend
 from camera import list_cameras, open_camera
 from capture import capture
 from enrollment import enroll
 from errors import EXIT_FATAL, EXIT_RETRYABLE, GuardError
 from monitor import WatchSettings, monitor
+from paths import data_home
 from policy import Policy
 from protocol import open_protocol_stream, watch_stdin
 from recognition import load_reference
@@ -41,7 +42,7 @@ log = logging.getLogger("faceguard")
 def load(args, emit):
     """Loads the chosen model on the chosen hardware, using the CPU if there's no GPU."""
     compute = args.compute
-    if compute == GPU and cuda_gpu_name() is None:
+    if compute == GPU and gpu_name() is None:
         log.warning("No usable GPU found, so using the CPU")
         compute = CPU
     return load_backend(MODELS[args.model], args.detection_threshold, compute, emit)
@@ -80,14 +81,13 @@ def match_threshold(args):
 
 
 def parse_args(argv=None):
-    data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list-cameras", action="store_true")
     parser.add_argument("--list-models", action="store_true")
     parser.add_argument("--enroll", metavar="SRC")
     parser.add_argument("--capture", action="store_true")
     parser.add_argument("--prepare", action="store_true")
-    parser.add_argument("--reference", default=os.path.join(data_home, "faceguard", "reference.jpg"))
+    parser.add_argument("--reference", default=os.path.join(data_home(), "faceguard", "reference.jpg"))
     parser.add_argument("--device", default="auto", help="camera, or auto for the first physical one")
     parser.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL)
     parser.add_argument("--compute", choices=(CPU, GPU), default=CPU)

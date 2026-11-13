@@ -5,8 +5,9 @@ import os
 import shutil
 import urllib.request
 
-DATA_HOME = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
-MODEL_DIR = os.path.join(DATA_HOME, "faceguard", "models")
+from paths import data_home
+
+MODEL_DIR = os.path.join(data_home(), "faceguard", "models")
 TIMEOUT_S = 60
 
 

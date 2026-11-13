@@ -7,10 +7,10 @@ from typing import Callable
 from errors import GuardError
 
 from .base import CPU, GPU, DetectedFace, FaceBackend
-from .devices import cuda_gpu_name
+from .devices import gpu_name
 
 __all__ = ["CPU", "GPU", "DEFAULT_MODEL", "MODELS", "DetectedFace", "FaceBackend", "Model",
-           "cuda_gpu_name", "describe_models", "load_backend"]
+           "gpu_name", "describe_models", "load_backend"]
 
 log = logging.getLogger("faceguard")
 
@@ -38,7 +38,7 @@ def _insightface(pack, label, download_note):
         default_match_threshold=0.4,
         uses_detection_threshold=True,
         installed=insightface_backend.installed,
-        can_use_gpu=onnx_sessions.cuda_provider_available,
+        can_use_gpu=onnx_sessions.gpu_provider_available,
         present=lambda: insightface_backend.pack_present(pack),
         create=lambda detection_threshold, compute: insightface_backend.InsightFaceBackend(
             pack, detection_threshold, compute),
@@ -74,16 +74,16 @@ DEFAULT_MODEL = "buffalo_l"
 
 def describe_models():
     """What Settings needs to offer the models and the GPU switch."""
-    gpu_name = cuda_gpu_name()
+    gpu = gpu_name()
     return {
-        "gpu": gpu_name,
+        "gpu": gpu,
         "models": [
             {
                 "id": model.id,
                 "label": model.label,
                 "installed": model.installed(),
                 "downloaded": model.installed() and model.present(),
-                "gpu": gpu_name is not None and model.installed() and model.can_use_gpu(),
+                "gpu": gpu is not None and model.installed() and model.can_use_gpu(),
                 "default_match_threshold": model.default_match_threshold,
                 "uses_detection_threshold": model.uses_detection_threshold,
             }

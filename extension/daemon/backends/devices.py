@@ -1,17 +1,38 @@
-"""Whether a usable NVIDIA GPU is present, asked of the driver directly.
+"""Whether a usable GPU is present, asked of the driver or OS directly.
 
-This doesn't start CUDA in the process, so checking costs almost no memory,
-unlike creating a GPU session just to see if one works.
+This doesn't start CUDA or CoreML in the process, so checking costs almost no
+memory, unlike creating a GPU session just to see if one works.
 """
 
 import ctypes
 import logging
+import platform
+import sys
 
 log = logging.getLogger("faceguard")
 
 
-def cuda_gpu_name():
-    """Returns the first CUDA GPU's name, or None if the driver reports none."""
+def gpu_name():
+    """Returns the first GPU's name, or None if there's no usable one."""
+    if sys.platform == "darwin":
+        return _apple_gpu_name()
+    return _cuda_gpu_name()
+
+
+def _apple_gpu_name():
+    """Apple silicon runs models through CoreML on its GPU and Neural Engine."""
+    if platform.machine() != "arm64":
+        return None
+    try:
+        import onnxruntime
+    except ImportError:
+        return None
+    if "CoreMLExecutionProvider" not in onnxruntime.get_available_providers():
+        return None
+    return "Apple silicon (CoreML)"
+
+
+def _cuda_gpu_name():
     try:
         cuda = ctypes.CDLL("libcuda.so.1")
     except OSError:

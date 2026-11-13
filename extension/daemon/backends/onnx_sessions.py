@@ -7,10 +7,13 @@ about a third of the RAM, at about 0.1 s per snap.
 """
 
 import os
+import sys
 
 from .base import CPU, GPU
 
 CUDA_PROVIDER = "CUDAExecutionProvider"
+COREML_PROVIDER = "CoreMLExecutionProvider"
+GPU_PROVIDER = COREML_PROVIDER if sys.platform == "darwin" else CUDA_PROVIDER
 CPU_PROVIDER = "CPUExecutionProvider"
 CPU_THREADS = min(4, os.cpu_count() or 1)
 CUDA_OPTIONS = {
@@ -20,10 +23,20 @@ CUDA_OPTIONS = {
 }
 
 
-def cuda_provider_available():
+COREML_OPTIONS = {"ModelFormat": "MLProgram"}
+
+
+def gpu_provider_available():
+    """Whether onnxruntime was built with CUDA (Linux) or CoreML (macOS)."""
     import onnxruntime
 
-    return CUDA_PROVIDER in onnxruntime.get_available_providers()
+    return GPU_PROVIDER in onnxruntime.get_available_providers()
+
+
+def _gpu_providers():
+    if GPU_PROVIDER == CUDA_PROVIDER:
+        return [(CUDA_PROVIDER, CUDA_OPTIONS), CPU_PROVIDER]
+    return [(COREML_PROVIDER, COREML_OPTIONS), CPU_PROVIDER]
 
 
 def create_session(path, compute):
@@ -33,9 +46,9 @@ def create_session(path, compute):
     options = onnxruntime.SessionOptions()
     options.inter_op_num_threads = 1
     options.enable_cpu_mem_arena = False
-    if compute == GPU and cuda_provider_available():
+    if compute == GPU and gpu_provider_available():
         options.intra_op_num_threads = 1  # the GPU does the work
-        providers = [(CUDA_PROVIDER, CUDA_OPTIONS), CPU_PROVIDER]
+        providers = _gpu_providers()
     else:
         options.intra_op_num_threads = CPU_THREADS
         # Prepacking keeps a second, rearranged copy of every weight.
@@ -44,5 +57,5 @@ def create_session(path, compute):
         options.add_session_config_entry("session.intra_op.allow_spinning", "0")
         providers = [CPU_PROVIDER]
     session = onnxruntime.InferenceSession(path, options, providers=providers)
-    actual = GPU if session.get_providers()[0] == CUDA_PROVIDER else CPU
+    actual = GPU if session.get_providers()[0] == GPU_PROVIDER else CPU
     return session, actual
