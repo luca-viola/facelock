@@ -473,7 +473,7 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
     _buildMinimizeGroup(window) {
         const group = new Adw.PreferencesGroup({
             title: 'Minimize apps',
-            description: 'Also minimizes these apps\' windows when someone else appears, whatever the action above.',
+            description: 'Also minimizes windows when someone else appears, whatever the action above.',
         });
         const add = new Gtk.Button({
             icon_name: 'list-add-symbolic',
@@ -484,6 +484,13 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
         add.connect('clicked', () => this._openAppChooser(window));
         group.set_header_suffix(add);
 
+        const all = new Adw.SwitchRow({
+            title: 'All open apps',
+            subtitle: 'Every window on every workspace, not only the apps below.',
+        });
+        this._settings.bind('minimize-all', all, 'active', Gio.SettingsBindFlags.DEFAULT);
+        group.add(all);
+
         const restore = new Adw.SwitchRow({title: 'Restore once they\'ve gone'});
         this._settings.bind('minimize-restore', restore, 'active', Gio.SettingsBindFlags.DEFAULT);
         group.add(restore);
@@ -493,9 +500,14 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
             rows.forEach(row => group.remove(row));
             rows = this._settings.get_strv('minimize-apps').map(id => this._appRow(id));
             rows.forEach(row => group.add(row));
-            restore.visible = rows.length > 0;
+            const everything = this._settings.get_boolean('minimize-all');
+            // The list only matters when not minimizing everything.
+            rows.forEach(row => (row.sensitive = !everything));
+            add.sensitive = !everything;
+            restore.visible = everything || rows.length > 0;
         };
         this._settings.connect('changed::minimize-apps', refresh);
+        this._settings.connect('changed::minimize-all', refresh);
         refresh();
         return group;
     }

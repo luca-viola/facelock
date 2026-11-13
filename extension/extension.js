@@ -24,21 +24,34 @@ const RESTART_KEYS = [
     'min-face-px', 'absence-grace-s', 'intruder-grace-s', 'python-path', 'reference-stamp',
 ];
 
-const ICONS = {
-    off: 'camera-disabled-symbolic',
-    starting: 'camera-web-symbolic',
-    owner: 'security-high-symbolic',
-    absent: 'security-low-symbolic',
-    intruder: 'system-users-symbolic',
-    error: 'dialog-warning-symbolic',
-};
+// The panel icons ship with the extension, so they look the same under every icon theme and
+// match the macOS app's. tools/make_icons.py draws them; GNOME recolors them for the panel.
+const ICON_STATES = ['off', 'starting', 'owner', 'absent', 'intruder', 'error'];
+
+function loadIcons(extensionPath) {
+    return Object.fromEntries(ICON_STATES.map(state => [state, Gio.FileIcon.new(Gio.File.new_for_path(
+        GLib.build_filenamev([extensionPath, 'icons', `faceguard-${state}-symbolic.svg`])))]));
+}
+
+const MODIFIER_NAMES = {Control: 'Ctrl', Primary: 'Ctrl', Ctrl: 'Ctrl', Alt: 'Alt', Shift: 'Shift', Super: 'Super'};
+
+// Turns a setting such as ['<Control><Alt>c'] into "Ctrl+Alt+C", or null if none is set.
+function shortcutLabel(accelerators) {
+    const accelerator = accelerators[0];
+    if (!accelerator)
+        return null;
+    const modifiers = [...accelerator.matchAll(/<(\w+)>/g)].map(([, name]) => MODIFIER_NAMES[name] ?? name);
+    const key = accelerator.replace(/<\w+>/g, '');
+    return [...modifiers, key.length === 1 ? key.toUpperCase() : key[0].toUpperCase() + key.slice(1)].join('+');
+}
 
 const Indicator = GObject.registerClass(
 class FaceGuardIndicator extends PanelMenu.Button {
     _init(extension, settings) {
         super._init(0.5, extension.metadata.name);
 
-        this._icon = new St.Icon({icon_name: ICONS.off, style_class: 'system-status-icon'});
+        this._icons = loadIcons(extension.path);
+        this._icon = new St.Icon({gicon: this._icons.off, style_class: 'system-status-icon'});
         this.add_child(this._icon);
 
         this._status = new PopupMenu.PopupMenuItem('', {reactive: false});
@@ -52,13 +65,16 @@ class FaceGuardIndicator extends PanelMenu.Button {
         this._collaboration = new PopupMenu.PopupSwitchMenuItem('Allow collaboration', false);
         this._collaboration.connect('toggled', (_item, state) => extension.setCollaboration(state));
         this.menu.addMenuItem(this._collaboration);
+        this._settings = settings;
+        settings.connectObject('changed::toggle-collaboration', () => this._describeCollaboration(), this);
+        this._describeCollaboration();
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.menu.addAction('Settings', () => extension.openPreferences());
     }
 
     setStatus(iconKey, text) {
-        this._icon.icon_name = ICONS[iconKey];
+        this._icon.gicon = this._icons[iconKey];
         this._status.label.text = text;
     }
 
@@ -68,6 +84,16 @@ class FaceGuardIndicator extends PanelMenu.Button {
 
     setCollaboration(state) {
         this._collaboration.setToggleState(state);
+        this._describeCollaboration();
+    }
+
+    // Like the macOS menu: the shortcut while it's off, and what it means while it's on.
+    _describeCollaboration() {
+        const detail = this._collaboration.state
+            ? 'Extra face actions are off. It still locks if you leave.'
+            : shortcutLabel(this._settings.get_strv('toggle-collaboration')) ?? 'No shortcut set';
+        this._collaboration.label.clutter_text.set_markup(
+            `Allow collaboration\n<span size="small" alpha="65%">${GLib.markup_escape_text(detail, -1)}</span>`);
     }
 });
 

@@ -44,6 +44,7 @@ split in two:
 |---|---|
 | `extension/extension.js`, `actions.js`, `daemonClient.js` | Panel icon, starts and stops the daemon, carries out actions |
 | `extension/eyes.js`, `gaze.js` | The giant eyes overlay, and where its pupils point |
+| `extension/icons/`, `tools/make_icons.py` | The panel icons, and the script that draws them |
 | `extension/prefs.js` | Settings window and reference photo capture |
 | `extension/daemon/faceguard_daemon.py` | Entry point: reads the arguments and connects the parts below |
 | `extension/daemon/camera.py`, `capture.py` | Finding and reading cameras, and the reference photo preview |
@@ -59,7 +60,7 @@ grace period starts over.
 ## Behavior worth knowing
 
 - **Allow collaboration:** a switch in the panel menu, also on **Ctrl+Alt+C**, for when someone is
-  meant to look at your screen. It turns off the actions for another face (lock, workspace, command,
+  meant to look at your screen. The menu shows the shortcut under the switch. It turns off the actions for another face (lock, workspace, command,
   notify, eyes, minimized apps) but not the lock when your own face goes away. It isn't saved: it
   starts off after every unlock. Turning it on undoes what another face already set off, and turning
   it off while someone is still in view applies the action straight away. To change the shortcut:
@@ -106,13 +107,23 @@ grace period starts over.
   them until that face has been gone for 2 seconds and comes back. They also close by themselves once it has
   gone, and restarting the daemon, such as by unlocking or changing a setting, starts
   over. The rest of the screen stays usable, apart from clicks on the eyes themselves.
-- **Minimize apps:** minimizes the chosen apps' windows on every workspace, alongside
-  the action, and restores them once the other face has been gone for 2 seconds,
-  unless you turn that off or have restored them yourself. Windows GNOME can't match
-  to an installed app, such as some apps started from a script, aren't found. After
-  the screen locks, they stay minimized.
+- **Minimize apps:** minimizes the chosen apps' windows on every workspace, or with
+  **All open apps** every normal window, alongside the action. It restores them once
+  the other face has been gone for 2 seconds, unless you turn that off or have restored
+  them yourself. Windows GNOME can't match to an installed app, such as some apps
+  started from a script, aren't found for the chosen apps, but are with All open apps.
+  The desktop icons stay. After the screen locks, they stay minimized.
 - **Reference image:** stored at `~/.local/share/faceguard/reference.jpg`, readable
   only by you.
+
+## Panel icons
+
+The panel icon shows the state: a filled shield when only you are in view, an outline
+shield when you aren't recognized, two people when someone else is looking, an eye while
+starting, a crossed-out eye when off, and a warning triangle on an error. They ship with
+the extension, so they look the same under every icon theme. The shields are the macOS
+app's exact shapes; the others are drawn in the same style. GNOME recolors them for the
+panel. To change them, edit `tools/make_icons.py`, which needs Shapely, and run it.
 
 ## Tests
 

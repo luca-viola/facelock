@@ -1,5 +1,6 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -79,27 +80,36 @@ export class Actions {
 
     // Minimizes the chosen apps' windows on every workspace, remembering which ones
     // this did so they can be restored. A failure mustn't stop the main action.
-    _minimizeApps() {
+    // The chosen apps' windows, or with All open apps every normal window. Windows left out of
+    // the taskbar, such as the desktop icons, stay, like Finder on macOS.
+    _windowsToMinimize() {
+        if (this._settings.get_boolean('minimize-all')) {
+            return global.display.list_all_windows().filter(window =>
+                window.get_window_type() === Meta.WindowType.NORMAL && !window.is_skip_taskbar());
+        }
         const appSystem = Shell.AppSystem.get_default();
-        for (const id of this._settings.get_strv('minimize-apps')) {
-            for (const window of appSystem.lookup_app(id)?.get_windows() ?? []) {
-                if (window.minimized || !window.can_minimize())
-                    continue;
-                try {
-                    window.minimize();
-                } catch (error) {
-                    console.error(`Face Guard: can't minimize a window of ${id}: ${error.message}`);
-                    continue;
-                }
-                this._minimized.add(window);
-                // Forgets windows that close, or that the user restores themselves.
-                window.connectObject(
-                    'unmanaged', () => this._forget(window),
-                    'notify::minimized', () => {
-                        if (!window.minimized)
-                            this._forget(window);
-                    }, this);
+        return this._settings.get_strv('minimize-apps')
+            .flatMap(id => appSystem.lookup_app(id)?.get_windows() ?? []);
+    }
+
+    _minimizeApps() {
+        for (const window of this._windowsToMinimize()) {
+            if (window.minimized || !window.can_minimize())
+                continue;
+            try {
+                window.minimize();
+            } catch (error) {
+                console.error(`Face Guard: can't minimize "${window.get_title()}": ${error.message}`);
+                continue;
             }
+            this._minimized.add(window);
+            // Forgets windows that close, or that the user restores themselves.
+            window.connectObject(
+                'unmanaged', () => this._forget(window),
+                'notify::minimized', () => {
+                    if (!window.minimized)
+                        this._forget(window);
+                }, this);
         }
     }
 

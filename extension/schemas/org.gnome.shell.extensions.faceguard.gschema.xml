@@ -85,6 +85,10 @@
       <default>[]</default>
       <summary>Desktop file IDs of apps whose windows are minimized when another face appears</summary>
     </key>
+    <key name="minimize-all" type="b">
+      <default>false</default>
+      <summary>Minimize every open window when another face appears, not only the chosen apps</summary>
+    </key>
     <key name="minimize-restore" type="b">
       <default>true</default>
       <summary>Restore the minimized windows once the other face has gone</summary>
