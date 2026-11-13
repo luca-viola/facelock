@@ -20,6 +20,16 @@ The app finds the daemon's Python from the `.venv` it was built beside, or from 
 Settings. It's signed with your first Apple Development certificate, so the Camera and Automation
 permissions survive rebuilds. Pass another identity as the first argument to `build-app.sh`.
 
+### Releasing
+
+```sh
+./release-app.sh    # signs with your Developer ID, notarizes, staples, and zips to dist/FaceGuard.zip
+```
+
+It needs notarytool credentials stored in the keychain (`NOTARY_PROFILE`, default `snappo-notary`).
+That build records no Python path, and the app still needs a Python with the packages in
+`requirements.txt`: set it under Advanced in Settings. The icon comes from `icon/make-icon.swift`.
+
 ## The Python app
 
 ## Install and run

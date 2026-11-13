@@ -24,8 +24,13 @@ cp "$BINARY" "$APP/Contents/MacOS/FaceGuard"
 cp -R "$ROOT/../extension/daemon" "$APP/Contents/Resources/daemon"
 find "$APP/Contents/Resources/daemon" -name __pycache__ -type d -prune -exec rm -rf {} +
 
-# The interpreter that has insightface, onnxruntime and opencv.
-if [ -x "$ROOT/.venv/bin/python" ]; then
+cp "$ROOT/icon/FaceGuard.icns" "$APP/Contents/Resources/FaceGuard.icns"
+
+# The interpreter that has insightface, onnxruntime and opencv. A build to hand to others
+# (NO_PYTHON_PATH=1) must not carry a path that only exists on this Mac.
+if [ -n "${NO_PYTHON_PATH:-}" ]; then
+    echo "Not recording a Python path: it must be set in Settings, Advanced." >&2
+elif [ -x "$ROOT/.venv/bin/python" ]; then
     echo "$ROOT/.venv/bin/python" > "$APP/Contents/Resources/python-path.txt"
 else
     echo "warning: no .venv found. Run 'make venv', or set the Python path in Settings." >&2
@@ -37,6 +42,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key><string>FaceGuard</string>
+    <key>CFBundleIconFile</key><string>FaceGuard</string>
     <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
     <key>CFBundleName</key><string>Face Guard</string>
     <key>CFBundlePackageType</key><string>APPL</string>
@@ -66,6 +72,9 @@ ENT
 
 # A stable identity keeps the Camera and Automation permissions across rebuilds. An ad hoc
 # signature changes every time, so macOS would ask again.
-codesign --force --options runtime --entitlements "$ROOT/dist/FaceGuard.entitlements" \
+# Notarization needs a secure timestamp, which an ad hoc signature can't have.
+TIMESTAMP=(--timestamp)
+[ "$IDENTITY" = "-" ] && TIMESTAMP=()
+codesign --force --options runtime "${TIMESTAMP[@]}" --entitlements "$ROOT/dist/FaceGuard.entitlements" \
     --sign "$IDENTITY" "$APP"
 echo "Built $APP, signed with: $IDENTITY"
