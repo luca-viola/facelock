@@ -24,6 +24,17 @@ struct MenuView: View {
             Divider()
             Toggle("Watch camera", isOn: $store.data.enabled)
                 .toggleStyle(.switch)
+            Toggle(isOn: Binding(get: { controller.collaboration }, set: { controller.setCollaboration($0) })) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Allow collaboration")
+                    Text(controller.collaboration
+                         ? "Extra face actions are off. It still locks if you leave."
+                         : "Control-Option-C")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
             Divider()
             Button("Settings") {
                 NSApp.activate(ignoringOtherApps: true)

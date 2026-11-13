@@ -1,6 +1,8 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -46,6 +48,11 @@ class FaceGuardIndicator extends PanelMenu.Button {
         this._toggle.connect('toggled', (_item, state) => settings.set_boolean('enabled', state));
         this.menu.addMenuItem(this._toggle);
 
+        // Not saved: it's for the meeting you're in, and it ends when the screen locks.
+        this._collaboration = new PopupMenu.PopupSwitchMenuItem('Allow collaboration', false);
+        this._collaboration.connect('toggled', (_item, state) => extension.setCollaboration(state));
+        this.menu.addMenuItem(this._collaboration);
+
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.menu.addAction('Settings', () => extension.openPreferences());
     }
@@ -57,6 +64,10 @@ class FaceGuardIndicator extends PanelMenu.Button {
 
     setToggle(state) {
         this._toggle.setToggleState(state);
+    }
+
+    setCollaboration(state) {
+        this._collaboration.setToggleState(state);
     }
 });
 
@@ -77,6 +88,14 @@ export default class FaceGuardExtension extends Extension {
         this._enrollTimer = 0;
         this._backoffS = BACKOFF_MIN_S;
         this._lastError = null;
+        // Allow collaboration: the extra face actions are off, but your own absence still locks.
+        // Not saved, so it starts off again after every unlock, when GNOME re-enables this.
+        this._collaboration = false;
+        this._lastState = null;
+        this._lastOthers = 0;
+
+        Main.wm.addKeybinding('toggle-collaboration', this._settings, Meta.KeyBindingFlags.NONE,
+            Shell.ActionMode.NORMAL, () => this.setCollaboration(!this._collaboration));
 
         this._settingsIds = [
             this._settings.connect('changed::enabled', () => {
@@ -91,6 +110,7 @@ export default class FaceGuardExtension extends Extension {
     }
 
     disable() {
+        Main.wm.removeKeybinding('toggle-collaboration');
         this._settingsIds.forEach(id => this._settings.disconnect(id));
         this._settingsIds = null;
         this._clearTimer('_restartTimer');
@@ -210,7 +230,8 @@ export default class FaceGuardExtension extends Extension {
             this._showStatus(message);
             break;
         case 'intruder_at':
-            this._actions.intruderAt(message.x, message.y);
+            if (!this._collaboration)
+                this._actions.intruderAt(message.x, message.y);
             break;
         case 'trigger':
             this._onTrigger(message);
@@ -222,6 +243,8 @@ export default class FaceGuardExtension extends Extension {
     }
 
     _showStatus({state, others, score, camera_fps: fps, snap_rate: rate}) {
+        this._lastState = state;
+        this._lastOthers = others;
         const match = score === null ? 'no face seen' : `match ${score.toFixed(2)}`;
         const speed = `${rate.toFixed(1)} snaps/s, camera ${fps.toFixed(0)} fps · ${this._running}`;
         const summary = {
@@ -230,6 +253,30 @@ export default class FaceGuardExtension extends Extension {
             intruder: `You and ${others} other${others > 1 ? 's' : ''}`,
         }[state];
         this._indicator.setStatus(state, `${summary} · ${match}\n${speed}`);
+    }
+
+    // Turns collaboration on or off, from the panel switch or the shortcut. Losing sight of you
+    // still locks either way, because that trigger doesn't depend on it.
+    setCollaboration(on) {
+        if (on === this._collaboration)
+            return;
+        this._collaboration = on;
+        this._indicator.setCollaboration(on);
+        try {
+            if (on) {
+                // Someone is welcome now, so undo what the other face already set off.
+                this._actions.clear();
+            } else if (this._lastState === 'intruder') {
+                // The daemon only triggers once per episode, so someone still in view
+                // would otherwise go unnoticed until they left and came back.
+                this._actions.intruder(this._lastOthers);
+            }
+        } catch (error) {
+            console.error(`Face Guard: collaboration change failed: ${error.message}`);
+        }
+        Main.notify('Face Guard', on
+            ? 'Collaboration allowed. Others can look at your screen, but it still locks if you leave.'
+            : 'Collaboration is off. The extra face actions are back on.');
     }
 
     // Once per login, because the daemon restarts after every unlock.
@@ -245,7 +292,7 @@ export default class FaceGuardExtension extends Extension {
         try {
             if (kind === 'absent')
                 this._actions.lock();
-            else if (kind === 'intruder')
+            else if (kind === 'intruder' && !this._collaboration)
                 this._actions.intruder(others);
             else if (kind === 'clear')
                 this._actions.clear();

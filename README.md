@@ -58,6 +58,15 @@ grace period starts over.
 
 ## Behavior worth knowing
 
+- **Allow collaboration:** a switch in the panel menu, also on **Ctrl+Alt+C**, for when someone is
+  meant to look at your screen. It turns off the actions for another face (lock, workspace, command,
+  notify, eyes, minimized apps) but not the lock when your own face goes away. It isn't saved: it
+  starts off after every unlock. Turning it on undoes what another face already set off, and turning
+  it off while someone is still in view applies the action straight away. To change the shortcut:
+  `gsettings --schemadir ~/.local/share/gnome-shell/extensions/faceguard@lviola/schemas set
+  org.gnome.shell.extensions.faceguard toggle-collaboration "['<Super>c']"`. After updating, run
+  `./install.sh` and log out and back in, since the extension has a new setting.
+
 - **Face at a bad angle:** if only an unrecognized face is in view, that counts as
   you being absent, not as an intruder. An intruder needs your face matched in the
   same frame.

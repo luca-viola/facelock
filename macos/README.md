@@ -73,6 +73,15 @@ in Settings, and download about 30 MB the first time. Measured on an Apple silic
 of one face: HOG takes 57 ms and 140 MB; CNN takes 200 ms and about 1 GB. They run on the CPU.
 buffalo_l takes 77 ms on the CPU and 27 ms with CoreML, which uses more memory.
 
+## Allow collaboration
+
+A switch in the popup, also on **Control-Option-C** in any app, for when someone is meant to look
+at your screen. It turns off the actions for another face but not the lock when your own face goes
+away. It isn't saved: it starts off after every launch, and it ends when the screen locks. Turning
+it on undoes what another face already set off (eyes closed, apps shown again), and turning it off
+while someone is still in view applies the action straight away. A notification says which way it
+went, since the shortcut gives no other sign. The Python app doesn't have it.
+
 ## Permissions
 
 macOS asks for **Camera** access the first time you watch or take a photo. It is

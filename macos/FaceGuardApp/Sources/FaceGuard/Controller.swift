@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import Carbon.HIToolbox
 import Combine
 
 enum Phase { case off, starting, owner, absent, intruder, error }
@@ -42,6 +43,9 @@ final class Controller: ObservableObject {
     @Published private(set) var referenceExists = false
     @Published private(set) var referenceImage: NSImage?  // nil when there's none, or it can't be read
     @Published var alert: AlertInfo?
+    /// Allow collaboration: the extra face actions are off, but your own absence still locks.
+    /// Not saved, so it starts off again after every launch, and it ends when the screen locks.
+    @Published private(set) var collaboration = false
 
     private static let backoffMin = 2.0, backoffMax = 60.0, restartDebounce = 0.8
 
@@ -59,6 +63,9 @@ final class Controller: ObservableObject {
     private var previous: SettingsData
     private var cancellables = Set<AnyCancellable>()
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
+    private var lastState = "owner"  // what the daemon last said, to act on if collaboration ends
+    private var lastOthers = 0
+    private var collaborationKey: GlobalHotKey?
     private let logFile: FileHandle?
 
     init() {
@@ -73,6 +80,10 @@ final class Controller: ObservableObject {
             DispatchQueue.main.async { self?.settingsChanged(to: new) }
         }.store(in: &cancellables)
         watchSystem()
+        // Control+Option+C. The same shortcut as in the GNOME extension.
+        collaborationKey = GlobalHotKey(keyCode: kVK_ANSI_C, modifiers: controlKey | optionKey, id: 1) { [weak self] in
+            self?.setCollaboration(!(self?.collaboration ?? false))
+        }
         Notifier.requestPermission()
         Task { @MainActor in
             loadCameras()
@@ -140,6 +151,7 @@ final class Controller: ObservableObject {
 
     private func setPaused(_ reason: String, _ paused: Bool) {
         if paused { pausedFor.insert(reason) } else { pausedFor.remove(reason) }
+        if paused && reason == "locked" { collaboration = false }  // it's for the meeting you're in
         backoff = Self.backoffMin
         sync()
     }
@@ -250,11 +262,13 @@ final class Controller: ObservableObject {
         case "status":
             showStatus(message)
         case "intruder_at":
-            if let x = message["x"] as? Double, let y = message["y"] as? Double { actions.moveIntruder(x: x, y: y) }
+            if !collaboration, let x = message["x"] as? Double, let y = message["y"] as? Double {
+                actions.moveIntruder(x: x, y: y)
+            }
         case "trigger":
             switch message["kind"] as? String {
             case "absent": actions.lock()
-            case "intruder": actions.intruder(otherFaces: message["others"] as? Int ?? 1)
+            case "intruder": if !collaboration { actions.intruder(otherFaces: message["others"] as? Int ?? 1) }
             case "clear": actions.clear()
             default: break
             }
@@ -267,6 +281,8 @@ final class Controller: ObservableObject {
 
     private func showStatus(_ message: DaemonMessage) {
         let others = message["others"] as? Int ?? 0
+        lastState = message["state"] as? String ?? "owner"
+        lastOthers = others
         let match = (message["score"] as? Double).map { String(format: "match %.2f", $0) } ?? "no face seen"
         let rate = message["snap_rate"] as? Double ?? 0, fps = message["camera_fps"] as? Double ?? 0
         let speed = String(format: "%.1f snaps/s, camera %.0f fps", rate, fps) + " · \(running)"
@@ -308,6 +324,26 @@ final class Controller: ObservableObject {
         setStatus(.error, text)
         if text != lastError { Notifier.post("Face Guard isn't watching", text) }
         lastError = text
+    }
+
+    // MARK: Collaboration
+
+    /// Turns collaboration on or off, from the popup or the shortcut. Losing sight of you still
+    /// locks either way, because that trigger doesn't depend on it.
+    func setCollaboration(_ on: Bool) {
+        guard on != collaboration else { return }
+        collaboration = on
+        if on {
+            // Someone is welcome now, so undo what the other face already set off.
+            actions.clear()
+        } else if lastState == "intruder" {
+            // The daemon only triggers once per episode, so someone still in view would otherwise
+            // go unnoticed until they left and came back.
+            actions.intruder(otherFaces: lastOthers)
+        }
+        Notifier.post("Face Guard", on
+            ? "Collaboration allowed. Others can look at your screen, but it still locks if you leave."
+            : "Collaboration is off. The extra face actions are back on.")
     }
 
     // MARK: Cameras and models, which only the daemon's Python can list
