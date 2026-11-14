@@ -98,7 +98,7 @@ grace period starts over.
   the interval can't go faster than the camera's real framerate.
 - **Automatic camera:** picks the first physical camera and skips virtual ones such
   as OBS Virtual Camera.
-- **Let video calls use the camera:** a switch in the panel menu, off by default. On Linux
+- **Release camera to apps:** a switch in the panel menu, off by default. On Linux
   only one app can stream from a camera, so with it on, Face Guard lets go of it when
   another app opens it, and the panel says which app has it. Nothing is
   watched meanwhile, so leaving doesn't lock the screen during a call. It takes the

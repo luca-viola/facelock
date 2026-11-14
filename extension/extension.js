@@ -68,10 +68,10 @@ class FaceGuardIndicator extends PanelMenu.Button {
         this._toggle.connect('toggled', (_item, state) => settings.set_boolean('enabled', state));
         this.menu.addMenuItem(this._toggle);
 
-        this._shareCamera = new PopupMenu.PopupSwitchMenuItem('Let video calls use the camera',
+        this._shareCamera = new PopupMenu.PopupSwitchMenuItem('Release camera to apps',
             settings.get_boolean('share-camera'));
         this._shareCamera.connect('toggled', (_item, state) => settings.set_boolean('share-camera', state));
-        setDetail(this._shareCamera, 'Let video calls use the camera',
+        setDetail(this._shareCamera, 'Release camera to apps',
             'Pauses watching while another app has the camera');
         this.menu.addMenuItem(this._shareCamera);
         settings.connectObject('changed::share-camera',
