@@ -21,7 +21,7 @@ const ENROLL_TIMEOUT_S = 180; // Monitoring must come back even if preferences c
 
 const RESTART_KEYS = [
     'camera-device', 'interval-ms', 'model', 'use-gpu', 'match-thresholds', 'detection-threshold',
-    'min-face-px', 'absence-grace-s', 'intruder-grace-s', 'python-path', 'reference-stamp',
+    'min-face-px', 'absence-grace-s', 'intruder-grace-s', 'python-path', 'reference-stamp', 'share-camera',
 ];
 
 // The panel icons ship with the extension, so they look the same under every icon theme and
@@ -45,6 +45,13 @@ function shortcutLabel(accelerators) {
     return [...modifiers, key.length === 1 ? key.toUpperCase() : key[0].toUpperCase() + key.slice(1)].join('+');
 }
 
+// Gives a menu item a second, smaller line, as the macOS menu does.
+function setDetail(item, title, detail) {
+    const escape = text => GLib.markup_escape_text(text, -1);
+    item.label.clutter_text.set_markup(
+        `${escape(title)}\n<span size="small" alpha="65%">${escape(detail)}</span>`);
+}
+
 const Indicator = GObject.registerClass(
 class FaceGuardIndicator extends PanelMenu.Button {
     _init(extension, settings) {
@@ -60,6 +67,15 @@ class FaceGuardIndicator extends PanelMenu.Button {
         this._toggle = new PopupMenu.PopupSwitchMenuItem('Watch camera', settings.get_boolean('enabled'));
         this._toggle.connect('toggled', (_item, state) => settings.set_boolean('enabled', state));
         this.menu.addMenuItem(this._toggle);
+
+        this._shareCamera = new PopupMenu.PopupSwitchMenuItem('Let video calls use the camera',
+            settings.get_boolean('share-camera'));
+        this._shareCamera.connect('toggled', (_item, state) => settings.set_boolean('share-camera', state));
+        setDetail(this._shareCamera, 'Let video calls use the camera',
+            'Pauses watching while another app has the camera');
+        this.menu.addMenuItem(this._shareCamera);
+        settings.connectObject('changed::share-camera',
+            () => this._shareCamera.setToggleState(settings.get_boolean('share-camera')), this);
 
         // Not saved: it's for the meeting you're in, and it ends when the screen locks.
         this._collaboration = new PopupMenu.PopupSwitchMenuItem('Allow collaboration', false);
@@ -92,8 +108,7 @@ class FaceGuardIndicator extends PanelMenu.Button {
         const detail = this._collaboration.state
             ? 'Extra face actions are off. It still locks if you leave.'
             : shortcutLabel(this._settings.get_strv('toggle-collaboration')) ?? 'No shortcut set';
-        this._collaboration.label.clutter_text.set_markup(
-            `Allow collaboration\n<span size="small" alpha="65%">${GLib.markup_escape_text(detail, -1)}</span>`);
+        setDetail(this._collaboration, 'Allow collaboration', detail);
     }
 });
 
@@ -179,6 +194,7 @@ export default class FaceGuardExtension extends Extension {
             '--compute', s.get_boolean('use-gpu') ? 'gpu' : 'cpu',
             // Without one set for this model, the daemon uses the model's own default.
             ...threshold === undefined ? [] : ['--match-threshold', String(threshold)],
+            ...s.get_boolean('share-camera') ? ['--share-camera'] : [],
         ];
     }
 

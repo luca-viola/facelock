@@ -58,7 +58,7 @@ def run_monitor(args, emit):
     backend = load(args, emit)
     reference = load_reference(backend, args.reference)
     camera = open_camera(args.device)
-    users = watch_camera_users(camera.device)
+    users = watch_camera_users(camera.device) if args.share_camera else None
     sharing = None
     if users is not None:
         # Reopens the same camera, even if "auto" would pick another one by then.
@@ -98,6 +98,8 @@ def parse_args(argv=None):
     parser.add_argument("--device", default="auto", help="camera, or auto for the first physical one")
     parser.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL)
     parser.add_argument("--compute", choices=(CPU, GPU), default=CPU)
+    parser.add_argument("--share-camera", action="store_true",
+                        help="let go of the camera while another app uses it (Linux)")
     parser.add_argument("--interval-ms", type=int, default=1000)
     parser.add_argument("--match-threshold", type=float, default=None,
                         help="the model's own default if not given")

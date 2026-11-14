@@ -292,6 +292,10 @@ class ModelChoiceTests(unittest.TestCase):
         args = faceguard_daemon.parse_args(["--match-threshold", "0.55"])
         self.assertEqual(faceguard_daemon.match_threshold(args), 0.55)
 
+    def test_sharing_the_camera_is_off_unless_asked(self):
+        self.assertFalse(faceguard_daemon.parse_args([]).share_camera)
+        self.assertTrue(faceguard_daemon.parse_args(["--share-camera"]).share_camera)
+
     def test_cpu_is_the_default(self):
         self.assertEqual(faceguard_daemon.parse_args([]).compute, "cpu")
 
