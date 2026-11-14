@@ -9,8 +9,11 @@ from errors import GuardError
 
 if sys.platform == "darwin":
     from camera_avfoundation import list_cameras, open_capture
+
+    # macOS lets several apps use a camera at once, so there's nothing to hand over.
+    CameraUsers = None
 else:
-    from camera_v4l2 import list_cameras, open_capture
+    from camera_v4l2 import CameraUsers, list_cameras, open_capture
 
 # Requested size; the camera driver may pick the nearest one it supports.
 FRAME_WIDTH = 1280
@@ -44,6 +47,7 @@ class Camera:
 
     def __init__(self, device):
         self._capture = open_capture(device, FRAME_WIDTH, FRAME_HEIGHT)
+        self.device = device
         self._device = device
         self._want_frame = False
         self._frame = None
@@ -105,3 +109,16 @@ def open_camera(device):
                 camera.close()
             time.sleep(CAMERA_RETRY_S)
     raise last_error
+
+
+def watch_camera_users(device_path):
+    """A CameraUsers for this camera, or None where cameras are shared or it can't be watched."""
+    if CameraUsers is None:
+        return None
+    try:
+        return CameraUsers(device_path)
+    except OSError as error:
+        import logging
+
+        logging.getLogger("faceguard").warning("Can't watch for other apps using the camera: %s", error)
+        return None

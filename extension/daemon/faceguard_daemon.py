@@ -26,7 +26,7 @@ import sys
 import threading
 
 from backends import CPU, DEFAULT_MODEL, GPU, MODELS, gpu_name, describe_models, load_backend
-from camera import list_cameras, open_camera
+from camera import list_cameras, open_camera, watch_camera_users
 from capture import capture
 from enrollment import enroll
 from errors import EXIT_FATAL, EXIT_RETRYABLE, GuardError
@@ -35,6 +35,7 @@ from paths import data_home
 from policy import Policy
 from protocol import open_protocol_stream, watch_stdin
 from recognition import load_reference
+from sharing import CameraSharing
 
 log = logging.getLogger("faceguard")
 
@@ -57,10 +58,16 @@ def run_monitor(args, emit):
     backend = load(args, emit)
     reference = load_reference(backend, args.reference)
     camera = open_camera(args.device)
+    users = watch_camera_users(camera.device)
+    sharing = None
+    if users is not None:
+        # Reopens the same camera, even if "auto" would pick another one by then.
+        sharing = CameraSharing(users, lambda: open_camera(camera.device), emit)
+        sharing.started()
     emit("ready", model=args.model, compute=backend.compute, requested=args.compute)
     settings = WatchSettings(args.interval_ms, match_threshold(args), args.min_face_px)
     policy = Policy(args.absence_grace, args.intruder_grace)
-    monitor(camera, backend, reference, policy, emit, settings, tracking=tracking)
+    monitor(camera, backend, reference, policy, emit, settings, tracking=tracking, sharing=sharing)
 
 
 def run_enroll(args, emit):

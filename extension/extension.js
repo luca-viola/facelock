@@ -255,6 +255,16 @@ export default class FaceGuardExtension extends Extension {
         case 'status':
             this._showStatus(message);
             break;
+        case 'paused': {
+            // Another app has the camera, so nothing is watched until it's free again.
+            this._actions.clear();
+            const apps = message.apps.length ? message.apps.join(', ') : 'another app';
+            this._indicator.setStatus('off', `Paused while ${apps} uses the camera`);
+            break;
+        }
+        case 'resumed':
+            this._indicator.setStatus('starting', `Watching with ${this._running}`);
+            break;
         case 'intruder_at':
             if (!this._collaboration)
                 this._actions.intruderAt(message.x, message.y);

@@ -30,6 +30,14 @@ class Policy:
         self._intruder_active = False
         self._clear_since = None
 
+    def reset(self):
+        """Starts over, as after a pause in which nothing was seen."""
+        self._absent_since = None
+        self._absent_fired = False
+        self._intruder_since = None
+        self._intruder_active = False
+        self._clear_since = None
+
     def observe(self, now, owner_present, other_faces):
         """Records one frame and returns the triggers it caused, oldest first."""
         triggers = []

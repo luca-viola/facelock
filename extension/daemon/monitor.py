@@ -19,11 +19,12 @@ class WatchSettings:
 
 
 def monitor(camera, backend, reference, policy, emit, settings, clock=time.monotonic, sleep=time.sleep,
-            tracking=None):
+            tracking=None, sharing=None):
     """Runs the watch loop until the camera fails (raises) or forever.
 
     While the tracking event is set, it snaps as fast as the camera delivers frames,
-    so something following the other face can keep up.
+    so something following the other face can keep up. With sharing, it lets another
+    app have the camera and nothing is watched meanwhile.
     """
     interval_s = settings.interval_ms / 1000
     warmup_until = clock() + WARMUP_S
@@ -32,6 +33,14 @@ def monitor(camera, backend, reference, policy, emit, settings, clock=time.monot
     processed = collections.deque(maxlen=20)
 
     while True:
+        if sharing is not None:
+            shared = sharing.check(camera)
+            if shared is not camera:
+                # Nothing was seen during the pause, so it all starts over.
+                camera = shared
+                policy.reset()
+                warmup_until = clock() + WARMUP_S
+                last_status = None
         started = clock()
         frame = camera.read()
         if started < warmup_until:

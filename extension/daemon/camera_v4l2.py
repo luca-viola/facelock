@@ -77,3 +77,84 @@ def open_capture(device, width, height):
     capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     return capture
+
+
+### --- OTHER APPS USING THE CAMERA --- ###
+IN_OPEN = 0x20
+IN_CLOSE = 0x08 | 0x10  # IN_CLOSE_WRITE | IN_CLOSE_NOWRITE
+IN_NONBLOCK = 0o4000
+IN_CLOEXEC = 0o2000000
+EVENT_HEADER = struct.Struct("iIII")  # struct inotify_event without its name
+
+
+class CameraUsers:
+    """Notices other processes opening a camera, and lists those holding it open.
+
+    Linux can't say which app wants a camera, but inotify reports every open of its
+    device file, and /proc shows which processes hold it. Face Guard's own opens are
+    discarded with forget_own_opens().
+    """
+
+    def __init__(self, device_path):
+        import ctypes
+
+        self.path = os.path.realpath(device_path)
+        self._libc = ctypes.CDLL(None, use_errno=True)
+        self._fd = self._libc.inotify_init1(IN_NONBLOCK | IN_CLOEXEC)
+        if self._fd < 0:
+            raise OSError(ctypes.get_errno(), "inotify_init1 failed")
+        if self._libc.inotify_add_watch(self._fd, self.path.encode(), IN_OPEN | IN_CLOSE) < 0:
+            error = ctypes.get_errno()
+            os.close(self._fd)
+            raise OSError(error, f"can't watch {self.path}")
+
+    def _read_masks(self):
+        masks = []
+        while True:
+            try:
+                data = os.read(self._fd, 4096)
+            except BlockingIOError:
+                return masks
+            offset = 0
+            while offset + EVENT_HEADER.size <= len(data):
+                _wd, mask, _cookie, name_length = EVENT_HEADER.unpack_from(data, offset)
+                masks.append(mask)
+                offset += EVENT_HEADER.size + name_length
+
+    def opened_since_last_check(self):
+        """Whether anything opened the camera since the last check or forget_own_opens()."""
+        return any(mask & IN_OPEN for mask in self._read_masks())
+
+    def forget_own_opens(self):
+        self._read_masks()
+
+    def holders(self):
+        """Names of the other processes holding the camera open, as far as /proc lets us see."""
+        own = os.getpid()
+        names = []
+        for pid in os.listdir("/proc"):
+            if not pid.isdigit() or int(pid) == own:
+                continue
+            try:
+                fds = os.listdir(f"/proc/{pid}/fd")
+            except OSError:
+                continue  # gone, or another user's process
+            for fd in fds:
+                try:
+                    if os.readlink(f"/proc/{pid}/fd/{fd}") == self.path:
+                        with open(f"/proc/{pid}/comm") as comm:
+                            names.append(comm.read().strip())
+                        break
+                except OSError:
+                    continue
+        return names
+
+    def wait_for_change(self, timeout):
+        """Returns when the camera is opened or closed, or after timeout seconds."""
+        import select
+
+        select.select([self._fd], [], [], timeout)
+        self._read_masks()
+
+    def close(self):
+        os.close(self._fd)

@@ -48,6 +48,7 @@ split in two:
 | `extension/prefs.js` | Settings window and reference photo capture |
 | `extension/daemon/faceguard_daemon.py` | Entry point: reads the arguments and connects the parts below |
 | `extension/daemon/camera.py`, `capture.py` | Finding and reading cameras, and the reference photo preview |
+| `extension/daemon/sharing.py` | Letting go of the camera while another app uses it |
 | `extension/daemon/backends/` | Face-recognition models behind one small interface (`base.py`) |
 | `extension/daemon/recognition.py`, `monitor.py`, `enrollment.py` | Telling you from others, the watch loop, and storing the reference |
 | `extension/daemon/protocol.py`, `errors.py`, `files.py` | Messages to the extension, exit codes, and private files |
@@ -97,6 +98,15 @@ grace period starts over.
   the interval can't go faster than the camera's real framerate.
 - **Automatic camera:** picks the first physical camera and skips virtual ones such
   as OBS Virtual Camera.
+- **Video calls:** on Linux only one app can stream from a camera, so Face Guard lets go
+  of it when another app opens it, and the panel says which app has it. Nothing is
+  watched meanwhile, so leaving doesn't lock the screen during a call. It takes the
+  camera back 3 seconds after the other app closes it. The call app's first attempt to
+  start the camera usually fails, because it starts streaming before Face Guard can let
+  go; click its camera button again. After an attempt like that Face Guard waits 15
+  seconds, so your retry gets the camera. Apps that only peek at the camera, such as a
+  browser listing the cameras for a meeting page, cause the same short pause. macOS
+  shares cameras between apps, so this doesn't apply there.
 - **Command action:** runs with `sh -c`, with the number of other faces in
   `FACEGUARD_OTHER_FACES`.
 - **Eyes action:** shows a pair of giant xeyes-style eyes in the middle of the primary
