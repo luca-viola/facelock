@@ -10,7 +10,8 @@ from errors import GuardError
 if sys.platform == "darwin":
     from camera_avfoundation import list_cameras, open_capture
 
-    # macOS lets several apps use a camera at once, so there's nothing to hand over.
+    # macOS usually lets several apps use a camera at once, so nothing is handed over.
+    # Untested with Face Guard.
     CameraUsers = None
 else:
     from camera_v4l2 import CameraUsers, list_cameras, open_capture

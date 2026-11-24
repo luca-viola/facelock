@@ -106,8 +106,8 @@ grace period starts over.
   start the camera usually fails, because it starts streaming before Face Guard can let
   go; click its camera button again. After an attempt like that Face Guard waits 15
   seconds, so your retry gets the camera. Apps that only peek at the camera, such as a
-  browser listing the cameras for a meeting page, cause the same short pause. macOS
-  shares cameras between apps, so this doesn't apply there.
+  browser listing the cameras for a meeting page, cause the same short pause. On macOS this does
+  nothing: apps can usually share a camera there, but that's untested with Face Guard.
 - **Command action:** runs with `sh -c`, with the number of other faces in
   `FACEGUARD_OTHER_FACES`.
 - **Eyes action:** shows a pair of giant xeyes-style eyes in the middle of the primary
