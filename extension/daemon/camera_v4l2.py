@@ -3,6 +3,7 @@
 import fcntl
 import os
 import struct
+import time
 
 from errors import GuardError
 
@@ -11,6 +12,8 @@ V4L2_CAP_VIDEO_CAPTURE = 0x00000001
 V4L2_CAP_DEVICE_CAPS = 0x80000000
 V4L2_LOOPBACK_DRIVER = "v4l2 loopback"
 BY_ID_DIR = "/dev/v4l/by-id"
+SYSFS_DIR = "/sys/class/video4linux"
+UDEV_DIR = "/run/udev/data"
 
 
 def query_camera(path):
@@ -31,6 +34,31 @@ def query_camera(path):
         return None
     decode = lambda value: value.split(b"\0", 1)[0].decode("utf-8", "replace")
     return decode(card), decode(driver)
+
+
+def describe_camera(node):
+    """Like (name, whether it's virtual) from query_camera(), or None, but from what udev knows.
+
+    Opening the device would look to a watching Facelock like an app that wants the
+    camera, so it's only opened if udev has no record of it.
+    """
+    name = os.path.basename(node)
+    try:
+        with open(os.path.join(SYSFS_DIR, name, "dev")) as file:
+            number = file.read().strip()
+        with open(os.path.join(UDEV_DIR, f"c{number}"), encoding="utf-8", errors="replace") as file:
+            lines = file.read().splitlines()
+        capabilities = next(line.split("=", 1)[1] for line in lines
+                            if line.startswith("E:ID_V4L_CAPABILITIES="))
+        with open(os.path.join(SYSFS_DIR, name, "name"), encoding="utf-8", errors="replace") as file:
+            label = file.read().strip()
+        label = next((line.split("=", 1)[1] for line in lines
+                      if line.startswith("E:ID_V4L_PRODUCT=")), label)
+        virtual = os.path.realpath(os.path.join(SYSFS_DIR, name)).startswith("/sys/devices/virtual/")
+    except (OSError, StopIteration):
+        info = query_camera(node)
+        return info and (info[0], info[1] == V4L2_LOOPBACK_DRIVER)
+    return (label, virtual) if ":capture:" in capabilities else None
 
 
 def stable_paths():
@@ -55,12 +83,12 @@ def list_cameras():
     cameras = []
     for number in sorted(numbered):
         node = f"/dev/video{number}"
-        info = query_camera(node)
+        info = describe_camera(node)
         if info:
             cameras.append({
                 "path": stable.get(node, node),
                 "name": info[0],
-                "virtual": info[1] == V4L2_LOOPBACK_DRIVER,
+                "virtual": info[1],
             })
     return cameras
 
@@ -99,6 +127,7 @@ class CameraUsers:
         import ctypes
 
         self.path = os.path.realpath(device_path)
+        self._opened = False
         self._libc = ctypes.CDLL(None, use_errno=True)
         self._fd = self._libc.inotify_init1(IN_NONBLOCK | IN_CLOEXEC)
         if self._fd < 0:
@@ -123,10 +152,27 @@ class CameraUsers:
 
     def opened_since_last_check(self):
         """Whether anything opened the camera since the last check or forget_own_opens()."""
-        return any(mask & IN_OPEN for mask in self._read_masks())
+        opened = self._opened or any(mask & IN_OPEN for mask in self._read_masks())
+        self._opened = False
+        return opened
+
+    def wait_for_open(self, timeout):
+        """Returns as soon as something opens the camera, or after timeout seconds.
+
+        The open still counts for opened_since_last_check().
+        """
+        import select
+
+        deadline = time.monotonic() + timeout
+        while not self._opened:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not select.select([self._fd], [], [], remaining)[0]:
+                return
+            self._opened = any(mask & IN_OPEN for mask in self._read_masks())
 
     def forget_own_opens(self):
         self._read_masks()
+        self._opened = False
 
     def holders(self):
         """Names of the other processes holding the camera open, as far as /proc lets us see."""

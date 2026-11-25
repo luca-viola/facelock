@@ -78,4 +78,4 @@ def monitor(camera, backend, reference, policy, emit, settings, clock=time.monot
             continue
         remaining = interval_s - (clock() - started)
         if remaining > 0:
-            sleep(remaining)
+            (sleep if sharing is None else sharing.wait)(remaining)

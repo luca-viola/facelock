@@ -13,6 +13,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "extension", "daemon"))
 sys.path.insert(0, os.path.dirname(__file__))  # for test_daemon's fakes
 
+from errors import GuardError
 from policy import Policy
 from sharing import RESUME_AFTER_ATTEMPT_S, RESUME_AFTER_USE_S, CameraSharing
 
@@ -104,6 +105,38 @@ class CameraSharingTests(unittest.TestCase):
         self.assertEqual(users.own_opens_forgotten, 1)
 
 
+    def test_waits_for_an_app_that_takes_it_first(self):
+        users = FakeUsers(self.clock, opened=True, held=[(0, 5), (8, 20)])
+
+        def open_camera():
+            if not self.opened:
+                self.opened.append(self.clock.now)
+                self.clock.now = 9  # an app got in just before
+                raise GuardError("camera", "busy", retryable=True)
+            self.opened.append(self.clock.now)
+            return FakeCamera()
+
+        sharing = self.sharing(users)
+        sharing._open_camera = open_camera
+        sharing.check(FakeCamera())
+        self.assertEqual([event for event, _ in self.events], ["paused", "paused", "resumed"])
+        self.assertGreaterEqual(self.opened[1], 20 + RESUME_AFTER_USE_S)
+
+    def test_a_broken_camera_still_fails(self):
+        def open_camera():
+            raise GuardError("camera", "gone", retryable=True)
+
+        sharing = self.sharing(FakeUsers(self.clock))
+        sharing._open_camera = open_camera
+        with self.assertRaises(GuardError):
+            sharing.open_first()
+
+    def test_starting_waits_for_an_app_that_already_has_it(self):
+        self.sharing(FakeUsers(self.clock, held=[(0, 10)])).open_first()
+        self.assertEqual(self.events, [("paused", {"apps": ["zoom"]})])
+        self.assertGreaterEqual(self.opened[0], 10 + RESUME_AFTER_USE_S)
+
+
 class PolicyResetTests(unittest.TestCase):
     def test_absence_starts_over_after_reset(self):
         policy = Policy(5, 1)
@@ -136,6 +169,9 @@ class MonitorPauseTests(unittest.TestCase):
                 self.done = True
                 clock.now += 120
                 return DaemonCamera(clock, scene, end=200)
+
+            def wait(self, seconds):
+                clock.sleep(seconds)
 
         events = []
         with self.assertRaises(StopLoop):
@@ -184,6 +220,15 @@ class CameraUsersTests(unittest.TestCase):
             self.users.wait_for_change(0.2)
         self.assertEqual(self.users.holders(), [])
 
+    def test_an_open_cuts_the_wait_short_and_still_counts(self):
+        process = subprocess.Popen([sys.executable, "-c", f"import time; time.sleep(0.2); open({self.path!r})"])
+        started = time.monotonic()
+        self.users.wait_for_open(10)
+        self.assertLess(time.monotonic() - started, 5)
+        process.wait()
+        self.assertTrue(self.users.opened_since_last_check())
+        self.assertFalse(self.users.opened_since_last_check())
+
     def test_its_own_opens_can_be_forgotten(self):
         with open(self.path):
             pass
@@ -193,6 +238,26 @@ class CameraUsersTests(unittest.TestCase):
     def test_its_own_process_is_not_a_holder(self):
         with open(self.path):
             self.assertEqual(self.users.holders(), [])
+
+
+@unittest.skipUnless(sys.platform.startswith("linux"), "udev is Linux only")
+class ListingTests(unittest.TestCase):
+    def test_udev_is_enough_without_opening_the_camera(self):
+        from unittest import mock
+
+        import camera_v4l2
+
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, "sys", "video0"))
+            for path, text in (("sys/video0/dev", "81:0"), ("sys/video0/name", "isp"),
+                               ("c81:0", "E:ID_V4L_PRODUCT=FaceTime\nE:ID_V4L_CAPABILITIES=:capture:\n")):
+                with open(os.path.join(root, path), "w") as file:
+                    file.write(text)
+            with mock.patch.object(camera_v4l2, "SYSFS_DIR", os.path.join(root, "sys")), \
+                    mock.patch.object(camera_v4l2, "UDEV_DIR", root), \
+                    mock.patch.object(camera_v4l2, "query_camera") as query:
+                self.assertEqual(camera_v4l2.describe_camera("/dev/video0"), ("FaceTime", False))
+                query.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ import sys
 import threading
 
 from backends import CPU, DEFAULT_MODEL, GPU, MODELS, gpu_name, describe_models, load_backend
-from camera import list_cameras, open_camera, watch_camera_users
+from camera import list_cameras, open_camera, resolve_device, watch_camera_users
 from capture import capture
 from enrollment import enroll
 from errors import EXIT_FATAL, EXIT_RETRYABLE, GuardError
@@ -57,13 +57,14 @@ def run_monitor(args, emit):
         raise GuardError("no_reference", "No reference image has been set", retryable=False)
     backend = load(args, emit)
     reference = load_reference(backend, args.reference)
-    camera = open_camera(args.device)
-    users = watch_camera_users(camera.device) if args.share_camera else None
     sharing = None
-    if users is not None:
+    if args.share_camera:
         # Reopens the same camera, even if "auto" would pick another one by then.
-        sharing = CameraSharing(users, lambda: open_camera(camera.device), emit)
-        sharing.started()
+        device = resolve_device(args.device)
+        users = watch_camera_users(device)
+        if users is not None:
+            sharing = CameraSharing(users, lambda: open_camera(device), emit)
+    camera = sharing.open_first() if sharing else open_camera(args.device)
     emit("ready", model=args.model, compute=backend.compute, requested=args.compute)
     settings = WatchSettings(args.interval_ms, match_threshold(args), args.min_face_px)
     policy = Policy(args.absence_grace, args.intruder_grace)

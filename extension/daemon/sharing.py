@@ -7,7 +7,10 @@ attempt usually fails anyway, because it starts streaming within microseconds of
 opening, so after an attempt like that Facelock waits longer, for the retry.
 """
 
+import logging
 import time
+
+from errors import GuardError
 
 # Quiet time before taking the camera back, after an app used it.
 RESUME_AFTER_USE_S = 3.0
@@ -15,6 +18,8 @@ RESUME_AFTER_USE_S = 3.0
 # long enough to click the call's camera button again.
 RESUME_AFTER_ATTEMPT_S = 15.0
 CHECK_PERIOD_S = 1.0
+
+log = logging.getLogger("facelock")
 
 
 class CameraSharing:
@@ -28,15 +33,42 @@ class CameraSharing:
         """Call after opening the camera, so the opens it caused aren't taken for another app."""
         self._users.forget_own_opens()
 
+    def open_first(self):
+        """Opens the camera to start watching, after any app that already has it."""
+        if self._users.holders():
+            self._emit("paused", apps=sorted(set(self._users.holders())))
+            self._wait_until_free()
+        return self._open_when_free()
+
+    def _open_when_free(self):
+        """Opens the camera. If an app took it first, waits for that app rather than failing."""
+        while True:
+            try:
+                camera = self._open_camera()
+            except GuardError:
+                holders = self._users.holders()
+                if not holders:
+                    raise
+                self._emit("paused", apps=sorted(set(holders)))
+                self._wait_until_free()
+                continue
+            self.started()
+            return camera
+
+    def wait(self, seconds):
+        """Sleeps between snaps, but wakes at once if another app opens the camera."""
+        self._users.wait_for_open(seconds)
+
     def check(self, camera):
         """Returns the camera to use: this one, or a reopened one after another app used it."""
         if not self._users.opened_since_last_check():
             return camera
+        started = self._clock()
         camera.close()
+        log.info("Released the camera in %.0f ms", (self._clock() - started) * 1000)
         self._emit("paused", apps=sorted(set(self._users.holders())))
         self._wait_until_free()
-        camera = self._open_camera()
-        self.started()
+        camera = self._open_when_free()
         self._emit("resumed")
         return camera
 
