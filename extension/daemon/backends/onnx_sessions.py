@@ -6,6 +6,7 @@ alone costs several hundred MB of RAM and VRAM. On the CPU these settings use
 about a third of the RAM, at about 0.1 s per snap.
 """
 
+import importlib.util
 import os
 import sys
 
@@ -35,6 +36,11 @@ def gpu_provider_available():
 
 def _gpu_providers():
     if GPU_PROVIDER == CUDA_PROVIDER:
+        if importlib.util.find_spec("nvidia") is not None:
+            import onnxruntime
+
+            # CUDA from pip is outside the library search path, so it has to be loaded first.
+            onnxruntime.preload_dlls()
         return [(CUDA_PROVIDER, CUDA_OPTIONS), CPU_PROVIDER]
     return [(COREML_PROVIDER, COREML_OPTIONS), CPU_PROVIDER]
 

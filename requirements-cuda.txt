@@ -1,0 +1,2 @@
+# x86_64 only. The extras bring NVIDIA's CUDA 12 and cuDNN libraries, so only the driver is needed.
+onnxruntime-gpu[cuda,cudnn]==1.22.0

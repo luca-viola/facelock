@@ -16,11 +16,29 @@ photo of you passes as you. Your normal unlock password stays the real security.
 ./install.sh
 ```
 
-This creates the exact `faceguard` conda environment from `environment.yml` (several
-GB, and it needs a C++ compiler to build insightface) and downloads the default
-`buffalo_l` models to `~/.insightface/models` if they're missing. To use another
-environment, pass its python as an argument. Face Guard runs on the CPU by default; an
-NVIDIA GPU is optional.
+Plain `./install.sh` is right for most computers. The options are:
+
+| Command | When to use it |
+|---|---|
+| `./install.sh` | Most cases. Runs on the CPU, and asks first if it finds a usable NVIDIA GPU |
+| `./install.sh --gpu` | Only with an NVIDIA GPU, on x86_64: uses it without asking |
+| `./install.sh --cpu` | Uses the CPU without asking, even if there's an NVIDIA GPU |
+| `./install.sh --dlib` | Also installs dlib, another engine to try that might be lighter. Its HOG detector uses less memory than `buffalo_l`, but needs faces turned towards the camera; its CNN detector is much slower |
+
+`--dlib` can be combined with `--gpu` or `--cpu`, but dlib itself always runs on the CPU.
+Choose its models in Settings afterwards.
+
+This works on any distribution with GNOME 49 or later and Python 3, on x86_64 and
+aarch64 (with glibc, so not musl distributions). It needs no compiler, conda or root. It
+creates an environment in `~/.local/share/faceguard/venv` with the pinned packages,
+using [uv](https://docs.astral.sh/uv/) (downloaded temporarily if you don't have it) and
+Python 3.12 (downloaded if you don't have it), and downloads the default `buffalo_l`
+models to `~/.insightface/models` if they're missing.
+
+If it finds an NVIDIA GPU with a working driver, it asks whether to use it. `--gpu` or
+`--cpu` answers in advance. Other GPUs, including Apple silicon under Asahi Linux, aren't
+supported, so those computers use the CPU. To use your own environment, pass its python
+as an argument.
 
 On Wayland, log out and back in once after the first install, then run:
 
@@ -91,16 +109,18 @@ grace period starts over.
   it. Smaller models tell faces apart less reliably. dlib's HOG detector only finds
   faces turned towards the camera and at least about 80 pixels across; its CNN detector
   also finds turned faces but takes about 0.6 s per snap. The dlib models download to
-  `~/.local/share/faceguard/models`. The environment has dlib's CPU build: conda-forge's
-  GPU build needs a newer cuDNN than onnxruntime-gpu is installed with. With another
-  Python that lacks dlib, its models are left out of Settings.
+  `~/.local/share/faceguard/models`. dlib isn't
+  installed by default, and without it its models are left out of Settings. `./install.sh
+  --dlib` adds it from `dlib-bin`, a prebuilt CPU package for x86_64 and aarch64, pinned by
+  hash. That's an unofficial build by [alesanfra](https://github.com/alesanfra/dlib-wheels),
+  not dlib's author. It stays installed when you run `./install.sh` again.
 - **Snap rate:** the daemon only analyzes frames the camera has newly delivered, so
   the interval can't go faster than the camera's real framerate.
 - **Automatic camera:** picks the first physical camera and skips virtual ones such
   as OBS Virtual Camera.
 - **Release camera to apps:** a switch in the panel menu, off by default. On Linux
   only one app can stream from a camera, so with it on, Face Guard lets go of it when
-  another app opens it, and the panel says which app has it. Nothing is
+  another app opens it, shows a notification, and the panel says which app has it. Nothing is
   watched meanwhile, so leaving doesn't lock the screen during a call. It takes the
   camera back 3 seconds after the other app closes it. The call app's first attempt to
   start the camera usually fails, because it starts streaming before Face Guard can let

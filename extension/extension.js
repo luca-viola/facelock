@@ -276,6 +276,8 @@ export default class FaceGuardExtension extends Extension {
             this._actions.clear();
             const apps = message.apps.length ? message.apps.join(', ') : 'another app';
             this._indicator.setStatus('off', `Paused while ${apps} uses the camera`);
+            Main.notify('Face Guard released the camera',
+                `It's free for ${apps}, and nothing is watched meanwhile. If the app's camera didn't start, try it again.`);
             break;
         }
         case 'resumed':

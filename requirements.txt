@@ -1,0 +1,28 @@
+# What the daemon needs, pinned. Wheels only, for x86_64 and aarch64, with Python 3.12.
+# install.sh adds onnxruntime from requirements-cpu.txt or requirements-cuda.txt, and insightface
+# without its dependencies, since it asks for the non-headless opencv-python.
+certifi==2026.10.23
+charset-normalizer==3.5.2
+flatbuffers==25.12.19
+idna==3.20
+imageio==2.38.1
+lazy-loader==0.6
+networkx==3.7
+numpy==1.26.4
+onnx==1.18.0
+opencv-python-headless==4.11.0.86
+packaging==26.3
+pillow==13.0.0
+protobuf==7.36.2
+requests==2.34.2
+scikit-image==0.26.0
+scipy==1.17.1
+tifffile==2026.3.3
+tqdm==4.70.1
+typing-extensions==4.16.0
+urllib3==2.8.0
+# onnxruntime 1.22 needs these.
+coloredlogs==15.0.1
+humanfriendly==10.0
+mpmath==1.3.0
+sympy==1.14.0
