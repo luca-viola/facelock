@@ -47,10 +47,10 @@ def daemon_script():
     """The daemon is shared with the GNOME extension, so in a checkout it's in ../extension."""
     for folder in (os.environ.get("RESOURCEPATH"), os.path.join(HERE, "..", "extension")):
         if folder:
-            path = os.path.join(folder, "daemon", "faceguard_daemon.py")
+            path = os.path.join(folder, "daemon", "facelock_daemon.py")
             if os.path.exists(path):
                 return os.path.abspath(path)
-    raise FileNotFoundError("faceguard_daemon.py")
+    raise FileNotFoundError("facelock_daemon.py")
 
 
 def _clear(menu):

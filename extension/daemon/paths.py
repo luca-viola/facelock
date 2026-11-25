@@ -1,10 +1,12 @@
-"""Where Face Guard keeps its files, which differs between Linux and macOS."""
+"""Where Facelock keeps its files, which differs between Linux and macOS."""
 
 import os
 import sys
 import tempfile
 
 MACOS = sys.platform == "darwin"
+# The macOS app is still called Face Guard.
+APP_DIR = "faceguard" if MACOS else "facelock"
 
 
 def data_home():

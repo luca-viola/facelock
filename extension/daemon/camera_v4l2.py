@@ -91,7 +91,7 @@ class CameraUsers:
     """Notices other processes opening a camera, and lists those holding it open.
 
     Linux can't say which app wants a camera, but inotify reports every open of its
-    device file, and /proc shows which processes hold it. Face Guard's own opens are
+    device file, and /proc shows which processes hold it. Facelock's own opens are
     discarded with forget_own_opens().
     """
 

@@ -46,7 +46,7 @@ export class DaemonClient {
         try {
             message = JSON.parse(line);
         } catch {
-            console.warn(`Face Guard: ignoring bad daemon output: ${line}`);
+            console.warn(`Facelock: ignoring bad daemon output: ${line}`);
             return;
         }
         this._onEvent(message);
@@ -57,7 +57,7 @@ export class DaemonClient {
         try {
             this._process.get_stdin_pipe().write_bytes(new GLib.Bytes(`${line}\n`), null);
         } catch (error) {
-            console.warn(`Face Guard: can't send "${line}" to the daemon: ${error.message}`);
+            console.warn(`Facelock: can't send "${line}" to the daemon: ${error.message}`);
         }
     }
 

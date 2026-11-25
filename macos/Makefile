@@ -8,7 +8,7 @@ venv:
 
 # Downloads the default model, so the first start doesn't look like a hang.
 prepare:
-	PYTHONDONTWRITEBYTECODE=1 ${VENV}/bin/python ../extension/daemon/faceguard_daemon.py --prepare
+	PYTHONDONTWRITEBYTECODE=1 ${VENV}/bin/python ../extension/daemon/facelock_daemon.py --prepare
 
 run:
 	${VENV}/bin/python faceguard.py

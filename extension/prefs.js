@@ -33,7 +33,7 @@ function runDaemon(argv, onEvent, onExit) {
             try {
                 onEvent(JSON.parse(line));
             } catch (error) {
-                console.warn(`Face Guard: bad daemon output: ${error.message}`);
+                console.warn(`Facelock: bad daemon output: ${error.message}`);
             }
             readLine();
         });
@@ -43,7 +43,7 @@ function runDaemon(argv, onEvent, onExit) {
     return process;
 }
 
-export default class FaceGuardPreferences extends ExtensionPreferences {
+export default class FacelockPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         this._settings = this.getSettings();
         window.set_default_size(640, 820);
@@ -62,12 +62,12 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
     _daemonBase() {
         return [
             this._settings.get_string('python-path') || 'python3',
-            GLib.build_filenamev([this.path, 'daemon', 'faceguard_daemon.py']),
+            GLib.build_filenamev([this.path, 'daemon', 'facelock_daemon.py']),
         ];
     }
 
     _referencePath() {
-        return GLib.build_filenamev([GLib.get_user_data_dir(), 'faceguard', 'reference.jpg']);
+        return GLib.build_filenamev([GLib.get_user_data_dir(), 'facelock', 'reference.jpg']);
     }
 
     /// --- REFERENCE FACE --- ///
@@ -315,7 +315,7 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
                 }
             });
         } catch (error) {
-            console.warn(`Face Guard: can't list cameras: ${error.message}`);
+            console.warn(`Facelock: can't list cameras: ${error.message}`);
         }
 
         group.add(this._spinRow(
@@ -411,7 +411,7 @@ export default class FaceGuardPreferences extends ExtensionPreferences {
                 showModel();
             });
         } catch (error) {
-            console.warn(`Face Guard: can't list the models: ${error.message}`);
+            console.warn(`Facelock: can't list the models: ${error.message}`);
         }
 
         group.add(this._spinRow(

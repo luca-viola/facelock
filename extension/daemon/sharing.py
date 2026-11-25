@@ -1,10 +1,10 @@
 """Letting go of the camera while another app wants it, and taking it back afterwards.
 
 On Linux a camera streams to one process at a time, so a video call can't start while
-Face Guard holds it. Face Guard notices the other app opening the camera, closes it,
+Facelock holds it. Facelock notices the other app opening the camera, closes it,
 and reopens it once nobody else has held it for a while. The other app's first
 attempt usually fails anyway, because it starts streaming within microseconds of
-opening, so after an attempt like that Face Guard waits longer, for the retry.
+opening, so after an attempt like that Facelock waits longer, for the retry.
 """
 
 import time

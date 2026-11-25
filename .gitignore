@@ -5,7 +5,7 @@ __pycache__/
 # Generated when the extension is installed
 extension/schemas/gschemas.compiled
 
-# Face photos: the reference image lives in ~/.local/share/faceguard, never here
+# Face photos: the reference image lives in ~/.local/share/facelock, never here
 *.jpg
 *.jpeg
 *.png

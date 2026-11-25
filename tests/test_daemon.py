@@ -19,7 +19,7 @@ try:
 except ImportError:
     insightface = None
 
-import faceguard_daemon
+import facelock_daemon
 from backends import MODELS, DetectedFace, Model, describe_models, load_backend
 from backends.insightface_backend import pack_present
 from camera import WARMUP_S
@@ -254,7 +254,7 @@ class LoadBackendTests(unittest.TestCase):
         def broken(_threshold, _compute):
             raise OSError("network down")
 
-        with self.assertLogs("faceguard", "ERROR"), self.assertRaises(GuardError) as caught:
+        with self.assertLogs("facelock", "ERROR"), self.assertRaises(GuardError) as caught:
             load_backend(fake_model(present, broken), 0.5, "cpu", lambda *a, **k: None)
         return caught.exception
 
@@ -279,34 +279,34 @@ class LoadBackendTests(unittest.TestCase):
         self.assertFalse(caught.exception.retryable)
 
     def test_missing_model_directory_is_not_present(self):
-        with mock.patch("backends.insightface_backend.MODEL_ROOT", "/nonexistent/faceguard"):
+        with mock.patch("backends.insightface_backend.MODEL_ROOT", "/nonexistent/facelock"):
             self.assertFalse(pack_present("buffalo_l"))
 
 
 class ModelChoiceTests(unittest.TestCase):
     def test_threshold_defaults_to_the_models_own(self):
-        args = faceguard_daemon.parse_args(["--model", "buffalo_sc"])
-        self.assertEqual(faceguard_daemon.match_threshold(args), MODELS["buffalo_sc"].default_match_threshold)
+        args = facelock_daemon.parse_args(["--model", "buffalo_sc"])
+        self.assertEqual(facelock_daemon.match_threshold(args), MODELS["buffalo_sc"].default_match_threshold)
 
     def test_a_given_threshold_wins(self):
-        args = faceguard_daemon.parse_args(["--match-threshold", "0.55"])
-        self.assertEqual(faceguard_daemon.match_threshold(args), 0.55)
+        args = facelock_daemon.parse_args(["--match-threshold", "0.55"])
+        self.assertEqual(facelock_daemon.match_threshold(args), 0.55)
 
     def test_sharing_the_camera_is_off_unless_asked(self):
-        self.assertFalse(faceguard_daemon.parse_args([]).share_camera)
-        self.assertTrue(faceguard_daemon.parse_args(["--share-camera"]).share_camera)
+        self.assertFalse(facelock_daemon.parse_args([]).share_camera)
+        self.assertTrue(facelock_daemon.parse_args(["--share-camera"]).share_camera)
 
     def test_cpu_is_the_default(self):
-        self.assertEqual(faceguard_daemon.parse_args([]).compute, "cpu")
+        self.assertEqual(facelock_daemon.parse_args([]).compute, "cpu")
 
     def test_gpu_falls_back_to_the_cpu_without_one(self):
-        args = faceguard_daemon.parse_args(["--compute", "gpu"])
+        args = facelock_daemon.parse_args(["--compute", "gpu"])
         chosen = []
         fake = fake_model(True, lambda _threshold, compute: chosen.append(compute))
-        with mock.patch.dict(faceguard_daemon.MODELS, {"buffalo_l": fake}), \
-                mock.patch("faceguard_daemon.gpu_name", return_value=None), \
-                self.assertLogs("faceguard", "WARNING"):
-            faceguard_daemon.load(args, lambda *a, **k: None)
+        with mock.patch.dict(facelock_daemon.MODELS, {"buffalo_l": fake}), \
+                mock.patch("facelock_daemon.gpu_name", return_value=None), \
+                self.assertLogs("facelock", "WARNING"):
+            facelock_daemon.load(args, lambda *a, **k: None)
         self.assertEqual(chosen, ["cpu"])
 
     def test_settings_learn_there_is_no_gpu(self):
@@ -321,7 +321,7 @@ SAMPLE = os.path.join(os.path.dirname(insightface.__file__), "data", "images", "
 
 @unittest.skipUnless(insightface, "needs insightface")
 class BackendContractTests(unittest.TestCase):
-    """Every downloaded model must behave the same way for the rest of Face Guard."""
+    """Every downloaded model must behave the same way for the rest of Facelock."""
 
     def test_downloaded_models(self):
         import cv2

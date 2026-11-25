@@ -9,7 +9,7 @@ import logging
 import platform
 import sys
 
-log = logging.getLogger("faceguard")
+log = logging.getLogger("facelock")
 
 
 def gpu_name():

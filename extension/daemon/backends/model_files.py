@@ -5,9 +5,9 @@ import os
 import shutil
 import urllib.request
 
-from paths import data_home
+from paths import APP_DIR, data_home
 
-MODEL_DIR = os.path.join(data_home(), "faceguard", "models")
+MODEL_DIR = os.path.join(data_home(), APP_DIR, "models")
 TIMEOUT_S = 60
 
 

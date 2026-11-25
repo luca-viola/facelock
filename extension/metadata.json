@@ -1,8 +1,8 @@
 {
-  "uuid": "faceguard@lviola",
-  "name": "Face Guard",
+  "uuid": "facelock@lviola",
+  "name": "Facelock",
   "description": "Watches the camera with InsightFace buffalo_l. Locks the screen when your face leaves, and runs a configurable action when someone else appears.",
   "shell-version": ["49", "50", "51"],
-  "settings-schema": "org.gnome.shell.extensions.faceguard",
+  "settings-schema": "org.gnome.shell.extensions.facelock",
   "version-name": "1.0.0"
 }

@@ -176,11 +176,11 @@ final class Controller: ObservableObject {
     }
 
     private func daemonScript() -> String {
-        if let url = Bundle.main.url(forResource: "daemon/faceguard_daemon", withExtension: "py") { return url.path }
+        if let url = Bundle.main.url(forResource: "daemon/facelock_daemon", withExtension: "py") { return url.path }
         // Running from the source tree: the daemon is shared with the GNOME extension.
         return URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("extension/daemon/faceguard_daemon.py").path
+            .appendingPathComponent("extension/daemon/facelock_daemon.py").path
     }
 
     private func daemonCommand(_ arguments: String...) -> [String] {

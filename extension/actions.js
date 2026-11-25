@@ -27,7 +27,7 @@ export class Actions {
 
     lock() {
         if (!Main.screenShield) {
-            Main.notifyError('Face Guard', 'Can\'t lock the screen: this session has no lock screen.');
+            Main.notifyError('Facelock', 'Can\'t lock the screen: this session has no lock screen.');
             return;
         }
         Main.screenShield.lock(true);
@@ -46,7 +46,7 @@ export class Actions {
             this._moveToWorkspace();
             break;
         case 'notify':
-            Main.notify('Face Guard', 'Someone else is looking at your screen.');
+            Main.notify('Facelock', 'Someone else is looking at your screen.');
             break;
         case 'eyes':
             this._showEyes();
@@ -99,7 +99,7 @@ export class Actions {
             try {
                 window.minimize();
             } catch (error) {
-                console.error(`Face Guard: can't minimize "${window.get_title()}": ${error.message}`);
+                console.error(`Facelock: can't minimize "${window.get_title()}": ${error.message}`);
                 continue;
             }
             this._minimized.add(window);
@@ -162,23 +162,24 @@ export class Actions {
     _runCommand(otherFaces) {
         const command = this._settings.get_string('intruder-command').trim();
         if (!command) {
-            Main.notifyError('Face Guard', 'Another face appeared, but no command is configured.');
+            Main.notifyError('Facelock', 'Another face appeared, but no command is configured.');
             return;
         }
         try {
             const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.NONE});
-            launcher.setenv('FACEGUARD_OTHER_FACES', String(otherFaces), true);
+            launcher.setenv('FACELOCK_OTHER_FACES', String(otherFaces), true);
+            launcher.setenv('FACEGUARD_OTHER_FACES', String(otherFaces), true); // the old name
             launcher.set_cwd(GLib.get_home_dir());
             const process = launcher.spawnv(['/bin/sh', '-c', command]);
             process.wait_check_async(null, (proc, result) => {
                 try {
                     proc.wait_check_finish(result);
                 } catch (error) {
-                    Main.notifyError('Face Guard', `The command failed: ${error.message}`);
+                    Main.notifyError('Facelock', `The command failed: ${error.message}`);
                 }
             });
         } catch (error) {
-            Main.notifyError('Face Guard', `Can't run the command: ${error.message}`);
+            Main.notifyError('Facelock', `Can't run the command: ${error.message}`);
         }
     }
 }

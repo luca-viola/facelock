@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Camera and face-recognition worker for the Face Guard GNOME extension.
+"""Camera and face-recognition worker for the Facelock GNOME extension.
 
 Talks to its parent over JSON lines on stdout and exits when stdin closes, so it
 can't outlive the shell and leave the camera on. Modes:
@@ -31,13 +31,13 @@ from capture import capture
 from enrollment import enroll
 from errors import EXIT_FATAL, EXIT_RETRYABLE, GuardError
 from monitor import WatchSettings, monitor
-from paths import data_home
+from paths import APP_DIR, data_home
 from policy import Policy
 from protocol import open_protocol_stream, watch_stdin
 from recognition import load_reference
 from sharing import CameraSharing
 
-log = logging.getLogger("faceguard")
+log = logging.getLogger("facelock")
 
 
 def load(args, emit):
@@ -94,7 +94,7 @@ def parse_args(argv=None):
     parser.add_argument("--enroll", metavar="SRC")
     parser.add_argument("--capture", action="store_true")
     parser.add_argument("--prepare", action="store_true")
-    parser.add_argument("--reference", default=os.path.join(data_home(), "faceguard", "reference.jpg"))
+    parser.add_argument("--reference", default=os.path.join(data_home(), APP_DIR, "reference.jpg"))
     parser.add_argument("--device", default="auto", help="camera, or auto for the first physical one")
     parser.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL)
     parser.add_argument("--compute", choices=(CPU, GPU), default=CPU)
@@ -111,7 +111,7 @@ def parse_args(argv=None):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="faceguard: %(message)s")
+    logging.basicConfig(level=logging.INFO, format="facelock: %(message)s")
     args = parse_args()
     emit = open_protocol_stream()
     try:

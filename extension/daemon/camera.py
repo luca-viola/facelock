@@ -11,7 +11,7 @@ if sys.platform == "darwin":
     from camera_avfoundation import list_cameras, open_capture
 
     # macOS usually lets several apps use a camera at once, so nothing is handed over.
-    # Untested with Face Guard.
+    # Untested with Facelock.
     CameraUsers = None
 else:
     from camera_v4l2 import CameraUsers, list_cameras, open_capture
@@ -121,5 +121,5 @@ def watch_camera_users(device_path):
     except OSError as error:
         import logging
 
-        logging.getLogger("faceguard").warning("Can't watch for other apps using the camera: %s", error)
+        logging.getLogger("facelock").warning("Can't watch for other apps using the camera: %s", error)
         return None

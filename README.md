@@ -1,4 +1,4 @@
-# Face Guard
+# Facelock
 
 A GNOME Shell extension that watches the camera with InsightFace `buffalo_l`.
 
@@ -30,7 +30,7 @@ Choose its models in Settings afterwards.
 
 This works on any distribution with GNOME 49 or later and Python 3, on x86_64 and
 aarch64 (with glibc, so not musl distributions). It needs no compiler, conda or root. It
-creates an environment in `~/.local/share/faceguard/venv` with the pinned packages,
+creates an environment in `~/.local/share/facelock/venv` with the pinned packages,
 using [uv](https://docs.astral.sh/uv/) (downloaded temporarily if you don't have it) and
 Python 3.12 (downloaded if you don't have it), and downloads the default `buffalo_l`
 models to `~/.insightface/models` if they're missing.
@@ -40,10 +40,13 @@ If it finds an NVIDIA GPU with a working driver, it asks whether to use it. `--g
 supported, so those computers use the CPU. To use your own environment, pass its python
 as an argument.
 
+If you had Face Guard, as Facelock was called before, this moves its settings and reference
+photo over and removes it. Log out and back in afterwards.
+
 On Wayland, log out and back in once after the first install, then run:
 
 ```sh
-gnome-extensions enable faceguard@lviola
+gnome-extensions enable facelock@lviola
 ```
 
 Open Settings from the shield icon in the top bar, set a reference image with
@@ -51,7 +54,7 @@ Open Settings from the shield icon in the top bar, set a reference image with
 
 ## macOS
 
-The `macos` folder has a menu bar app that uses the same daemon. See [macos/README.md](macos/README.md).
+The `macos` folder has a menu bar app, still called Face Guard, that uses the same daemon. See [macos/README.md](macos/README.md).
 
 ## How it works
 
@@ -64,7 +67,7 @@ split in two:
 | `extension/eyes.js`, `gaze.js` | The giant eyes overlay, and where its pupils point |
 | `extension/icons/`, `tools/make_icons.py` | The panel icons, and the script that draws them |
 | `extension/prefs.js` | Settings window and reference photo capture |
-| `extension/daemon/faceguard_daemon.py` | Entry point: reads the arguments and connects the parts below |
+| `extension/daemon/facelock_daemon.py` | Entry point: reads the arguments and connects the parts below |
 | `extension/daemon/camera.py`, `capture.py` | Finding and reading cameras, and the reference photo preview |
 | `extension/daemon/sharing.py` | Letting go of the camera while another app uses it |
 | `extension/daemon/backends/` | Face-recognition models behind one small interface (`base.py`) |
@@ -83,8 +86,8 @@ grace period starts over.
   notify, eyes, minimized apps) but not the lock when your own face goes away. It isn't saved: it
   starts off after every unlock. Turning it on undoes what another face already set off, and turning
   it off while someone is still in view applies the action straight away. To change the shortcut:
-  `gsettings --schemadir ~/.local/share/gnome-shell/extensions/faceguard@lviola/schemas set
-  org.gnome.shell.extensions.faceguard toggle-collaboration "['<Super>c']"`. After updating, run
+  `gsettings --schemadir ~/.local/share/gnome-shell/extensions/facelock@lviola/schemas set
+  org.gnome.shell.extensions.facelock toggle-collaboration "['<Super>c']"`. After updating, run
   `./install.sh` and log out and back in, since the extension has a new setting.
 
 - **Face at a bad angle:** if only an unrecognized face is in view, that counts as
@@ -109,7 +112,7 @@ grace period starts over.
   it. Smaller models tell faces apart less reliably. dlib's HOG detector only finds
   faces turned towards the camera and at least about 80 pixels across; its CNN detector
   also finds turned faces but takes about 0.6 s per snap. The dlib models download to
-  `~/.local/share/faceguard/models`. dlib isn't
+  `~/.local/share/facelock/models`. dlib isn't
   installed by default, and without it its models are left out of Settings. `./install.sh
   --dlib` adds it from `dlib-bin`, a prebuilt CPU package for x86_64 and aarch64, pinned by
   hash. That's an unofficial build by [alesanfra](https://github.com/alesanfra/dlib-wheels),
@@ -119,17 +122,17 @@ grace period starts over.
 - **Automatic camera:** picks the first physical camera and skips virtual ones such
   as OBS Virtual Camera.
 - **Release camera to apps:** a switch in the panel menu, off by default. On Linux
-  only one app can stream from a camera, so with it on, Face Guard lets go of it when
+  only one app can stream from a camera, so with it on, Facelock lets go of it when
   another app opens it, shows a notification, and the panel says which app has it. Nothing is
   watched meanwhile, so leaving doesn't lock the screen during a call. It takes the
   camera back 3 seconds after the other app closes it. The call app's first attempt to
-  start the camera usually fails, because it starts streaming before Face Guard can let
-  go; click its camera button again. After an attempt like that Face Guard waits 15
+  start the camera usually fails, because it starts streaming before Facelock can let
+  go; click its camera button again. After an attempt like that Facelock waits 15
   seconds, so your retry gets the camera. Apps that only peek at the camera, such as a
   browser listing the cameras for a meeting page, cause the same short pause. On macOS this does
-  nothing: apps can usually share a camera there, but that's untested with Face Guard.
+  nothing: apps can usually share a camera there, but that's untested with Facelock.
 - **Command action:** runs with `sh -c`, with the number of other faces in
-  `FACEGUARD_OTHER_FACES`.
+  `FACELOCK_OTHER_FACES`.
 - **Eyes action:** shows a pair of giant xeyes-style eyes in the middle of the primary
   screen that follow the largest other face, assuming the camera is at the top of the
   screen and doesn't mirror its image. While they're open, the daemon snaps at the
@@ -144,7 +147,7 @@ grace period starts over.
   them yourself. Windows GNOME can't match to an installed app, such as some apps
   started from a script, aren't found for the chosen apps, but are with All open apps.
   The desktop icons stay. After the screen locks, they stay minimized.
-- **Reference image:** stored at `~/.local/share/faceguard/reference.jpg`, readable
+- **Reference image:** stored at `~/.local/share/facelock/reference.jpg`, readable
   only by you.
 
 ## Panel icons
@@ -167,3 +170,10 @@ These need numpy but no camera, GPU or models. To test the gaze math:
 ```sh
 gjs -m tests/test_gaze.js
 ```
+
+## License
+
+GPL-3.0, see [LICENSE](LICENSE). The InsightFace and dlib models are downloaded separately
+and have their own licenses.
+
+The previous Facelock, a Python and Qt application, is on the `legacy` branch.

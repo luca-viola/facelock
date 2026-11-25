@@ -30,7 +30,7 @@ const ICON_STATES = ['off', 'starting', 'owner', 'absent', 'intruder', 'error'];
 
 function loadIcons(extensionPath) {
     return Object.fromEntries(ICON_STATES.map(state => [state, Gio.FileIcon.new(Gio.File.new_for_path(
-        GLib.build_filenamev([extensionPath, 'icons', `faceguard-${state}-symbolic.svg`])))]));
+        GLib.build_filenamev([extensionPath, 'icons', `facelock-${state}-symbolic.svg`])))]));
 }
 
 const MODIFIER_NAMES = {Control: 'Ctrl', Primary: 'Ctrl', Ctrl: 'Ctrl', Alt: 'Alt', Shift: 'Shift', Super: 'Super'};
@@ -53,7 +53,7 @@ function setDetail(item, title, detail) {
 }
 
 const Indicator = GObject.registerClass(
-class FaceGuardIndicator extends PanelMenu.Button {
+class FacelockIndicator extends PanelMenu.Button {
     _init(extension, settings) {
         super._init(0.5, extension.metadata.name);
 
@@ -112,7 +112,7 @@ class FaceGuardIndicator extends PanelMenu.Button {
     }
 });
 
-export default class FaceGuardExtension extends Extension {
+export default class FacelockExtension extends Extension {
     // Disabled when the screen locks and enabled again on unlock, because the
     // metadata declares no session-modes. So the camera is off while locked, and
     // locking the screen can't fire again until the user has logged back in.
@@ -173,7 +173,7 @@ export default class FaceGuardExtension extends Extension {
     }
 
     _referencePath() {
-        return GLib.build_filenamev([GLib.get_user_data_dir(), 'faceguard', 'reference.jpg']);
+        return GLib.build_filenamev([GLib.get_user_data_dir(), 'facelock', 'reference.jpg']);
     }
 
     _daemonArgv() {
@@ -182,7 +182,7 @@ export default class FaceGuardExtension extends Extension {
         const threshold = s.get_value('match-thresholds').deepUnpack()[model];
         return [
             s.get_string('python-path') || 'python3',
-            GLib.build_filenamev([this.path, 'daemon', 'faceguard_daemon.py']),
+            GLib.build_filenamev([this.path, 'daemon', 'facelock_daemon.py']),
             '--reference', this._referencePath(),
             '--device', s.get_string('camera-device'),
             '--interval-ms', String(s.get_int('interval-ms')),
@@ -276,7 +276,7 @@ export default class FaceGuardExtension extends Extension {
             this._actions.clear();
             const apps = message.apps.length ? message.apps.join(', ') : 'another app';
             this._indicator.setStatus('off', `Paused while ${apps} uses the camera`);
-            Main.notify('Face Guard released the camera',
+            Main.notify('Facelock released the camera',
                 `It's free for ${apps}, and nothing is watched meanwhile. If the app's camera didn't start, try it again.`);
             break;
         }
@@ -326,9 +326,9 @@ export default class FaceGuardExtension extends Extension {
                 this._actions.intruder(this._lastOthers);
             }
         } catch (error) {
-            console.error(`Face Guard: collaboration change failed: ${error.message}`);
+            console.error(`Facelock: collaboration change failed: ${error.message}`);
         }
-        Main.notify('Face Guard', on
+        Main.notify('Facelock', on
             ? 'Collaboration allowed. Others can look at your screen, but it still locks if you leave.'
             : 'Collaboration is off. The extra face actions are back on.');
     }
@@ -338,7 +338,7 @@ export default class FaceGuardExtension extends Extension {
         if (this._gpuWarned)
             return;
         this._gpuWarned = true;
-        Main.notify('Face Guard is running on the CPU',
+        Main.notify('Facelock is running on the CPU',
             'Use GPU is on, but the GPU couldn\'t be used. Check your NVIDIA driver and CUDA setup.');
     }
 
@@ -351,8 +351,8 @@ export default class FaceGuardExtension extends Extension {
             else if (kind === 'clear')
                 this._actions.clear();
         } catch (error) {
-            console.error(`Face Guard: ${kind} action failed: ${error.message}`);
-            Main.notifyError('Face Guard', `The ${kind} action failed: ${error.message}`);
+            console.error(`Facelock: ${kind} action failed: ${error.message}`);
+            Main.notifyError('Facelock', `The ${kind} action failed: ${error.message}`);
         }
     }
 
@@ -377,7 +377,7 @@ export default class FaceGuardExtension extends Extension {
     _showError(text) {
         this._indicator.setStatus('error', text);
         if (text !== this._lastError)
-            Main.notifyError('Face Guard isn\'t watching', text);
+            Main.notifyError('Facelock isn\'t watching', text);
         this._lastError = text;
     }
 }

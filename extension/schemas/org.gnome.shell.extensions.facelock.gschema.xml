@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.faceguard" path="/org/gnome/shell/extensions/faceguard/">
+  <schema id="org.gnome.shell.extensions.facelock" path="/org/gnome/shell/extensions/facelock/">
     <key name="toggle-collaboration" type="as">
       <default><![CDATA[['<Control><Alt>c']]]></default>
       <summary>Shortcut for Allow collaboration</summary>

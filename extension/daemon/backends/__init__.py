@@ -1,4 +1,4 @@
-"""The face-recognition models Face Guard can use, and loading one of them."""
+"""The face-recognition models Facelock can use, and loading one of them."""
 
 import logging
 from dataclasses import dataclass
@@ -12,7 +12,7 @@ from .devices import gpu_name
 __all__ = ["CPU", "GPU", "DEFAULT_MODEL", "MODELS", "DetectedFace", "FaceBackend", "Model",
            "gpu_name", "describe_models", "load_backend"]
 
-log = logging.getLogger("faceguard")
+log = logging.getLogger("facelock")
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,7 @@ def _dlib(detector, label):
         # dlib's detectors have no confidence on the same scale as the setting.
         uses_detection_threshold=False,
         installed=dlib_backend.installed,
-        can_use_gpu=lambda: False,  # Face Guard's environment has the CPU build
+        can_use_gpu=lambda: False,  # Facelock's environment has the CPU build
         present=lambda: dlib_backend.files_present(detector),
         create=lambda _detection_threshold, _compute: dlib_backend.DlibBackend(detector),
     )
@@ -95,7 +95,7 @@ def describe_models():
 def load_backend(model, detection_threshold, compute, emit):
     """Loads a model, saying what's happening since it can take minutes the first time."""
     if not model.installed():
-        raise GuardError("model", f"{model.label} isn't installed in Face Guard's Python", retryable=False)
+        raise GuardError("model", f"{model.label} isn't installed in Facelock's Python", retryable=False)
     present = model.present()
     if present:
         emit("loading", detail="Loading face models. The first run can take a minute.")

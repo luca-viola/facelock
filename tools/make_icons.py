@@ -79,7 +79,7 @@ def absent():
     return LinearRing(shield(2.6, 1.25)).buffer(1.5 / 2, join_style="round")
 
 
-# --- The others: drawn for Face Guard in the same outline style ---
+# --- The others: drawn for Facelock in the same outline style ---
 
 def person(head_x, head_y, head_radius, body_x, body_bottom, body_radius):
     """A head and rounded shoulders, as solid shapes."""
@@ -122,7 +122,7 @@ def off():
 
 
 def error():
-    """A warning triangle: Face Guard isn't watching."""
+    """A warning triangle: Facelock isn't watching."""
     corner = 1.3
     triangle = Polygon([(9, 1.6), (16.9, 15.6), (1.1, 15.6)]).buffer(-corner).buffer(corner)
     mark = line((9, 6.6), (9, 10.6), width=1.7)
@@ -157,7 +157,7 @@ def write(name, geometry):
         f'  <path fill="#2e3436" fill-rule="evenodd" d="{path_data(geometry)}"/>\n'
         "</svg>\n"
     )
-    path = os.path.join(OUT_DIR, f"faceguard-{name}-symbolic.svg")
+    path = os.path.join(OUT_DIR, f"facelock-{name}-symbolic.svg")
     with open(path, "w") as handle:
         handle.write(svg)
     return path
