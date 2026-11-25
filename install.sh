@@ -11,8 +11,6 @@ SOURCE="$ROOT/extension"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 TARGET="$DATA/gnome-shell/extensions/$UUID"
 VENV="$DATA/facelock/venv"
-OLD_UUID="faceguard@lviola"
-OLD_TARGET="$DATA/gnome-shell/extensions/$OLD_UUID"
 PYTHON_VERSION=3.12  # what the pinned packages have wheels for; uv downloads it if it's missing
 INSIGHTFACE=insightface==2.1
 UV_VERSION=0.13.9
@@ -62,39 +60,6 @@ sys.path.insert(0, sys.argv[1])
 import devices
 print(devices.gpu_name() or "")
 PY
-}
-
-# Moves the settings, photo and models of Face Guard, Facelock's old name, and removes it.
-migrate_face_guard() {
-    local old=org.gnome.shell.extensions.faceguard key value
-    echo "Moving your settings and reference photo from Face Guard."
-    if [ -n "$NEW_INSTALL" ]; then
-        while read -r key; do
-            case "$key" in python-path | enroll-active) continue ;; esac
-            if ! value="$(gsettings --schemadir "$OLD_TARGET/schemas" get "$old" "$key" 2>/dev/null)" ||
-                ! gsettings --schemadir "$TARGET/schemas" set org.gnome.shell.extensions.facelock "$key" "$value"; then
-                echo "Couldn't move the setting $key." >&2
-            fi
-        done < <(gsettings --schemadir "$OLD_TARGET/schemas" list-keys "$old" 2>/dev/null)
-    fi
-    mkdir -p "$DATA/facelock" || return 1
-    for key in reference.jpg models; do
-        if [ -e "$DATA/faceguard/$key" ] && [ ! -e "$DATA/facelock/$key" ]; then
-            mv "$DATA/faceguard/$key" "$DATA/facelock/$key" || return 1
-        fi
-    done
-    # Edited directly, since gnome-extensions can't enable what GNOME Shell hasn't loaded yet.
-    value="$(gsettings get org.gnome.shell enabled-extensions)" || return 1
-    case "$value" in
-        *"'$UUID'"*) ;;
-        *"'$OLD_UUID'"*) gsettings set org.gnome.shell enabled-extensions "${value//"'$OLD_UUID'"/"'$UUID'"}" || return 1 ;;
-    esac
-    rm -rf "${OLD_TARGET:?}" || return 1
-    case "$PYTHON" in
-        "$DATA/faceguard/venv/"*) ;;  # passed as an argument, so still in use
-        *) rm -rf "$DATA/faceguard/venv" ;;
-    esac
-    rmdir "$DATA/faceguard" 2>/dev/null || true
 }
 
 choose_compute() {
@@ -204,17 +169,11 @@ if [ "$COMPUTE" = gpu ]; then
     esac
 fi
 
-NEW_INSTALL=""
-[ -d "$TARGET" ] || NEW_INSTALL=1
 mkdir -p "$TARGET"
 rm -rf "${TARGET:?}"/*
 cp -r "$SOURCE"/. "$TARGET"/
 find "$TARGET" -name __pycache__ -type d -prune -exec rm -rf {} +
 glib-compile-schemas "$TARGET/schemas"
-# Most people never had Face Guard, and leftovers of it mustn't stop the install.
-if [ -d "$OLD_TARGET" ]; then
-    migrate_face_guard || echo "Couldn't move everything from Face Guard. What's left is in $OLD_TARGET and $DATA/faceguard." >&2
-fi
 gsettings --schemadir "$TARGET/schemas" set org.gnome.shell.extensions.facelock python-path "$PYTHON"
 if [ -n "$COMPUTE" ]; then
     gsettings --schemadir "$TARGET/schemas" set org.gnome.shell.extensions.facelock use-gpu \
@@ -226,8 +185,6 @@ if gnome-extensions list 2>/dev/null | grep -qx "$UUID"; then
     # GNOME Shell keeps an extension's code in memory, so disabling and enabling it
     # isn't enough for an update.
     echo "Next: log out and back in to load the new version."
-elif gsettings get org.gnome.shell enabled-extensions 2>/dev/null | grep -qF "'$UUID'"; then
-    echo "Next: log out and back in."
 else
     echo "Next: log out and back in, then run: gnome-extensions enable $UUID"
 fi

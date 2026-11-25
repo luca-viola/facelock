@@ -40,9 +40,6 @@ If it finds an NVIDIA GPU with a working driver, it asks whether to use it. `--g
 supported, so those computers use the CPU. To use your own environment, pass its python
 as an argument.
 
-If you had Face Guard, as Facelock was called before, this moves its settings and reference
-photo over and removes it. Log out and back in afterwards.
-
 On Wayland, log out and back in once after the first install, then run:
 
 ```sh
