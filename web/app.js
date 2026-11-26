@@ -119,7 +119,11 @@ async function pair(code, name, relay) {
             user: {id: randomBytes(16), name: `Facelock: ${name}`, displayName: `Facelock: ${name}`},
             challenge: randomBytes(32),
             pubKeyCredParams: [{type: 'public-key', alg: -7}],
-            authenticatorSelection: {userVerification: 'required', residentKey: 'preferred'},
+            // This phone's own passkeys, such as Google Password Manager or iCloud Keychain,
+            // not a security key or another device.
+            authenticatorSelection: {authenticatorAttachment: 'platform', userVerification: 'required',
+                residentKey: 'preferred'},
+            hints: ['client-device'],
             attestation: 'none',
             timeout: 120000,
         },
@@ -187,7 +191,10 @@ function startPairing(code = '', name = '', relay = DEFAULT_RELAY) {
             status('Paired. A test notification is on its way.');
         } catch (error) {
             $('passkey-button').disabled = false;
-            status(error.name === 'NotAllowedError' ? 'The passkey wasn\'t created.' : error.message, true);
+            status(error.name === 'NotAllowedError'
+                ? 'The passkey wasn\'t created. The phone needs somewhere to keep passkeys: on Android, ' +
+                  'Google Password Manager or another passkey app, turned on in Settings, Passwords and accounts.'
+                : error.message, true);
         }
     };
     $('code-form').onsubmit = event => event.preventDefault();
@@ -203,6 +210,7 @@ async function answer(request, computer, pick) {
             rpId: location.hostname,
             allowCredentials: [{type: 'public-key', id: unb64url(computer.credential)}],
             userVerification: 'required',
+            hints: ['client-device'],
             timeout: 60000,
         },
     });
