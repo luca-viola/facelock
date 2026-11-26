@@ -42,6 +42,13 @@ def download_files(detector):
             fetch_bz2(f"{BASE_URL}/{filename}.bz2", _path(filename))
 
 
+def _eyes_and_nose(shape):
+    """dlib's five points are the two corners of each eye and the bottom of the nose."""
+    points = [(float(shape.part(i).x), float(shape.part(i).y)) for i in range(5)]
+    midpoint = lambda a, b: ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)  # noqa: E731
+    return midpoint(points[0], points[1]), midpoint(points[2], points[3]), points[4]
+
+
 class DlibBackend:
     def __init__(self, detector):
         import dlib
@@ -88,6 +95,7 @@ class DlibBackend:
                 box=(float(rect.left()), float(rect.top()), float(rect.right()), float(rect.bottom())),
                 embedding=descriptor,
                 confidence=confidence,
+                landmarks=_eyes_and_nose(shape),
             ))
         return found
 

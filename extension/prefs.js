@@ -52,6 +52,7 @@ export default class FacelockPreferences extends ExtensionPreferences {
         const page = new Adw.PreferencesPage();
         window.add(page);
         page.add(this._buildReferenceGroup(window));
+        page.add(this._buildUnlockGroup(window));
         page.add(this._buildCameraGroup());
         page.add(this._buildDetectionGroup());
         page.add(this._buildActionGroup());
@@ -262,6 +263,169 @@ export default class FacelockPreferences extends ExtensionPreferences {
             statusLabel.label = `Can't start the daemon: ${error.message}`;
         }
 
+        dialog.present(window);
+    }
+
+    /// --- UNLOCKING --- ///
+    _phonePath() {
+        return GLib.build_filenamev([GLib.get_user_data_dir(), 'facelock', 'phone.json']);
+    }
+
+    // The paired phone's name and when it was paired, or null.
+    _pairedPhone() {
+        try {
+            const [, bytes] = GLib.file_get_contents(this._phonePath());
+            const phone = JSON.parse(new TextDecoder().decode(bytes));
+            return {device: phone.device || 'Phone', pairedAt: new Date(phone.paired_at * 1000)};
+        } catch {
+            return null;
+        }
+    }
+
+    _buildUnlockGroup(window) {
+        const group = new Adw.PreferencesGroup({
+            title: 'Unlocking',
+            description: 'When you wake the locked screen, Facelock looks for your face. Your password always works too.',
+        });
+
+        const unlock = new Adw.SwitchRow({title: 'Unlock with face'});
+        this._settings.bind('unlock-with-face', unlock, 'active', Gio.SettingsBindFlags.DEFAULT);
+        group.add(unlock);
+
+        const warning = new Adw.ActionRow({
+            title: 'A photo of you can unlock the screen',
+            subtitle: 'Turn on liveness detection or the phone below for more safety.',
+            css_classes: ['warning'],
+        });
+        warning.add_prefix(new Gtk.Image({icon_name: 'dialog-warning-symbolic'}));
+        group.add(warning);
+
+        const liveness = new Adw.SwitchRow({
+            title: 'Simple liveness detection',
+            subtitle: 'Turn your head to one side and back. Stops photos, but not a video of you.',
+        });
+        this._settings.bind('unlock-liveness', liveness, 'active', Gio.SettingsBindFlags.DEFAULT);
+        group.add(liveness);
+
+        const phone = new Adw.SwitchRow({
+            title: 'Use passkey on phone',
+            subtitle: 'Approve each unlock on your phone, with Face ID or a fingerprint.',
+        });
+        this._settings.bind('unlock-phone', phone, 'active', Gio.SettingsBindFlags.DEFAULT);
+        group.add(phone);
+
+        const pairing = new Adw.ActionRow();
+        const pairButton = new Gtk.Button({label: 'Pair Phone', valign: Gtk.Align.CENTER});
+        const forgetButton = new Gtk.Button({label: 'Forget', valign: Gtk.Align.CENTER, css_classes: ['destructive-action']});
+        pairing.add_suffix(forgetButton);
+        pairing.add_suffix(pairButton);
+        group.add(pairing);
+
+        const number = new Adw.SwitchRow({
+            title: 'Also pick a number on the phone',
+            subtitle: 'The lock screen shows a number, and you pick it on the phone. Stops approving by habit.',
+        });
+        this._settings.bind('unlock-number-match', number, 'active', Gio.SettingsBindFlags.DEFAULT);
+        group.add(number);
+
+        const relay = new Adw.EntryRow({title: 'Relay server (pair again after changing it)'});
+        this._settings.bind('relay-server', relay, 'text', Gio.SettingsBindFlags.DEFAULT);
+        group.add(relay);
+
+        const refresh = () => {
+            const on = this._settings.get_boolean('unlock-with-face');
+            const usePhone = this._settings.get_boolean('unlock-phone');
+            const paired = this._pairedPhone();
+            warning.visible = on && !usePhone && !this._settings.get_boolean('unlock-liveness');
+            liveness.visible = phone.visible = on;
+            pairing.visible = number.visible = relay.visible = on && usePhone;
+            pairing.title = paired ? `Paired with ${paired.device}` : 'No phone paired';
+            pairing.subtitle = paired
+                ? `Since ${paired.pairedAt.toLocaleDateString()}`
+                : 'Unlocking needs a paired phone while this is on.';
+            pairButton.label = paired ? 'Pair Again' : 'Pair Phone';
+            forgetButton.visible = paired !== null;
+        };
+        for (const key of ['unlock-with-face', 'unlock-phone', 'unlock-liveness'])
+            this._settings.connect(`changed::${key}`, refresh);
+        pairButton.connect('clicked', () => this._openPairDialog(window, refresh));
+        forgetButton.connect('clicked', () => {
+            GLib.unlink(this._phonePath());
+            refresh();
+        });
+        refresh();
+        return group;
+    }
+
+    _openPairDialog(window, onDone) {
+        const picture = new Gtk.Picture({
+            content_fit: Gtk.ContentFit.CONTAIN,
+            width_request: 260,
+            height_request: 260,
+            halign: Gtk.Align.CENTER,
+        });
+        const code = new Gtk.Label({
+            selectable: true,
+            css_classes: ['title-1', 'monospace'],
+            margin_top: 12,
+        });
+        const help = new Gtk.Label({
+            label: 'Starting…',
+            wrap: true,
+            justify: Gtk.Justification.CENTER,
+            max_width_chars: 44,
+            margin_top: 12,
+            margin_bottom: 18,
+            margin_start: 18,
+            margin_end: 18,
+        });
+        const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, margin_top: 12});
+        box.append(picture);
+        box.append(code);
+        box.append(help);
+        const toolbar = new Adw.ToolbarView({content: box});
+        toolbar.add_top_bar(new Adw.HeaderBar());
+        const dialog = new Adw.Dialog({title: 'Pair Phone', child: toolbar, content_width: 420});
+
+        let process = null;
+        let failure = null;
+        let paired = false;
+        dialog.connect('closed', () => {
+            // Closing stdin stops the daemon waiting for the phone.
+            process?.get_stdin_pipe().close(null);
+            onDone();
+        });
+        try {
+            process = runDaemon(
+                [...this._daemonBase(), '--pair', '--relay', this._settings.get_string('relay-server')],
+                message => {
+                    if (message.event === 'pair_code') {
+                        picture.set_paintable(Gdk.Texture.new_from_filename(message.qr));
+                        GLib.unlink(message.qr);
+                        code.label = message.code;
+                        const page = message.url.split('#')[0].replace(/^https:\/\//, '');
+                        help.label = 'Scan this with your phone\'s camera. Or open ' +
+                            `${page} on the phone and enter the code. ` +
+                            'On iPhone, add the page to the Home Screen first, as it says.';
+                    } else if (message.event === 'paired') {
+                        paired = true;
+                    } else if (message.event === 'error') {
+                        failure = message.message;
+                    }
+                },
+                () => {
+                    process = null;
+                    if (paired) {
+                        dialog.close();
+                    } else if (failure) {
+                        picture.visible = false;
+                        code.label = '';
+                        help.label = failure;
+                    }
+                });
+        } catch (error) {
+            help.label = `Can't start the daemon: ${error.message}`;
+        }
         dialog.present(window);
     }
 

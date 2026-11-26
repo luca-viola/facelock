@@ -2,7 +2,9 @@
 # install.sh adds onnxruntime from requirements-cpu.txt or requirements-cuda.txt, and insightface
 # without its dependencies, since it asks for the non-headless opencv-python.
 certifi==2026.10.23
+cffi==2.1.1
 charset-normalizer==3.5.2
+cryptography==50.0.2
 flatbuffers==25.12.19
 idna==3.20
 imageio==2.38.1
@@ -14,9 +16,11 @@ opencv-python-headless==4.11.0.86
 packaging==26.3
 pillow==13.0.0
 protobuf==7.36.2
+pycparser==3.12
 requests==2.34.2
 scikit-image==0.26.0
 scipy==1.17.1
+segno==1.6.6
 tifffile==2026.3.3
 tqdm==4.70.1
 typing-extensions==4.16.0

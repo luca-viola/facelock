@@ -11,6 +11,9 @@ can't outlive the shell and leave the camera on. Modes:
   --enroll SRC     validate an image and store it as the reference face
   --capture        stream preview frames until "snap" arrives on stdin
   --prepare        download the models if needed and warm them up
+  --unlock         check once whether the face in view may unlock the screen, and with
+                   --phone, ask the paired phone to approve; reports "unlock"
+  --pair           show a code for the phone page, and save the phone that pairs with it
 """
 
 import os
@@ -32,10 +35,13 @@ from enrollment import enroll
 from errors import EXIT_FATAL, EXIT_RETRYABLE, GuardError
 from monitor import WatchSettings, monitor
 from paths import APP_DIR, data_home
+from phone import PAGE_URL
 from policy import Policy
 from protocol import open_protocol_stream, watch_stdin
 from recognition import load_reference
+from relay import DEFAULT_SERVER
 from sharing import CameraSharing
+from unlock import UnlockSettings, check_face
 
 log = logging.getLogger("facelock")
 
@@ -71,6 +77,38 @@ def run_monitor(args, emit):
     monitor(camera, backend, reference, policy, emit, settings, tracking=tracking, sharing=sharing)
 
 
+def run_unlock(args, emit):
+    import phone
+
+    watch_stdin()
+    paired = None
+    if args.phone:
+        paired = phone.load_phone()
+        if paired is None:
+            emit("unlock", ok=False, reason="No phone is paired")
+            return
+    if not os.path.exists(args.reference):
+        raise GuardError("no_reference", "No reference image has been set", retryable=False)
+    backend = load(args, emit)
+    reference = load_reference(backend, args.reference)
+    camera = open_camera(args.device)
+    try:
+        reason = check_face(camera, backend, reference,
+                            UnlockSettings(match_threshold(args), args.min_face_px, args.liveness), emit)
+    finally:
+        camera.close()
+    if reason is None and paired is not None:
+        reason = phone.approve(paired, args.number_match, emit)
+    emit("unlock", ok=reason is None, reason=reason)
+
+
+def run_pair(args, emit):
+    import phone
+
+    watch_stdin()
+    phone.pair(args.relay, args.page_url, emit)
+
+
 def run_enroll(args, emit):
     enroll(load(args, emit), args.enroll, args.reference, emit)
 
@@ -95,6 +133,15 @@ def parse_args(argv=None):
     parser.add_argument("--enroll", metavar="SRC")
     parser.add_argument("--capture", action="store_true")
     parser.add_argument("--prepare", action="store_true")
+    parser.add_argument("--unlock", action="store_true")
+    parser.add_argument("--liveness", action="store_true", help="with --unlock, ask for a head turn")
+    parser.add_argument("--phone", action="store_true", help="with --unlock, ask the paired phone too")
+    parser.add_argument("--number-match", action="store_true",
+                        help="with --phone, pick the number on the screen on the phone")
+    parser.add_argument("--pair", action="store_true")
+    parser.add_argument("--relay", default=DEFAULT_SERVER, help="the ntfy server, for --pair")
+    parser.add_argument("--page-url", default=PAGE_URL,
+                        help="where the phone page is published, for --pair")
     parser.add_argument("--reference", default=os.path.join(data_home(), APP_DIR, "reference.jpg"))
     parser.add_argument("--device", default="auto", help="camera, or auto for the first physical one")
     parser.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL)
@@ -126,6 +173,10 @@ def main():
             capture(args.device, emit)
         elif args.prepare:
             run_prepare(args, emit)
+        elif args.unlock:
+            run_unlock(args, emit)
+        elif args.pair:
+            run_pair(args, emit)
         else:
             run_monitor(args, emit)
     except GuardError as error:

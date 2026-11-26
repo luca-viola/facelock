@@ -12,6 +12,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {Actions} from './actions.js';
 import {DaemonClient} from './daemonClient.js';
+import {Unlocker} from './unlocker.js';
 
 const EXIT_FATAL = 4; // The daemon's "restarting won't help" exit code.
 const RESTART_DEBOUNCE_MS = 800; // Sliders change settings many times per second.
@@ -113,11 +114,66 @@ class FacelockIndicator extends PanelMenu.Button {
 });
 
 export default class FacelockExtension extends Extension {
-    // Disabled when the screen locks and enabled again on unlock, because the
-    // metadata declares no session-modes. So the camera is off while locked, and
-    // locking the screen can't fire again until the user has logged back in.
+    // The metadata keeps this enabled on the lock screen, so it can unlock with your face. Watching
+    // still stops while locked, just as if it were disabled, so locking can't fire again until
+    // you're back. On the lock screen, only the Unlocker runs, and only if Unlock with face is on.
     enable() {
         this._settings = this.getSettings();
+        this._lockedByIntruder = false;
+        this._unlocker = null;
+        this._user = false;
+        Main.sessionMode.connectObject('updated', () => this._syncSessionMode(), this);
+        this._syncSessionMode();
+    }
+
+    disable() {
+        Main.sessionMode.disconnectObject(this);
+        this._stopUnlocker();
+        if (this._user)
+            this._leaveUser();
+        this._settings = null;
+    }
+
+    _syncSessionMode() {
+        if (Main.sessionMode.isLocked) {
+            if (this._user)
+                this._leaveUser();
+            if (!this._unlocker && this._settings.get_boolean('unlock-with-face'))
+                this._startUnlocker();
+        } else {
+            this._stopUnlocker();
+            this._lockedByIntruder = false;
+            if (!this._user)
+                this._enterUser();
+        }
+    }
+
+    _startUnlocker() {
+        if (!GLib.file_test(this._referencePath(), GLib.FileTest.EXISTS))
+            return;
+        const s = this._settings;
+        const phone = s.get_boolean('unlock-phone');
+        const argv = [
+            ...this._commonArgv(), '--unlock',
+            ...s.get_boolean('unlock-liveness') ? ['--liveness'] : [],
+            ...phone ? ['--phone'] : [],
+            ...phone && s.get_boolean('unlock-number-match') ? ['--number-match'] : [],
+        ];
+        try {
+            this._unlocker = new Unlocker(argv, {lockedByIntruder: this._lockedByIntruder});
+        } catch (error) {
+            console.error(`Facelock: can't set up unlocking: ${error.message}`);
+        }
+    }
+
+    _stopUnlocker() {
+        this._unlocker?.destroy();
+        this._unlocker = null;
+    }
+
+    // What used to be enable(): everything while you're logged in and unlocked.
+    _enterUser() {
+        this._user = true;
         this._settings.set_boolean('enroll-active', false);
         this._actions = new Actions(this._settings, on => this._daemon?.send(on ? 'track' : 'untrack'));
         this._indicator = new Indicator(this, this._settings);
@@ -130,7 +186,7 @@ export default class FacelockExtension extends Extension {
         this._backoffS = BACKOFF_MIN_S;
         this._lastError = null;
         // Allow collaboration: the extra face actions are off, but your own absence still locks.
-        // Not saved, so it starts off again after every unlock, when GNOME re-enables this.
+        // Not saved, so it starts off again after every unlock.
         this._collaboration = false;
         this._lastState = null;
         this._lastOthers = 0;
@@ -150,7 +206,8 @@ export default class FacelockExtension extends Extension {
         this._sync();
     }
 
-    disable() {
+    _leaveUser() {
+        this._user = false;
         Main.wm.removeKeybinding('toggle-collaboration');
         this._settingsIds.forEach(id => this._settings.disconnect(id));
         this._settingsIds = null;
@@ -162,7 +219,6 @@ export default class FacelockExtension extends Extension {
         this._indicator = null;
         this._actions.destroy();
         this._actions = null;
-        this._settings = null;
     }
 
     _clearTimer(name) {
@@ -176,7 +232,8 @@ export default class FacelockExtension extends Extension {
         return GLib.build_filenamev([GLib.get_user_data_dir(), 'facelock', 'reference.jpg']);
     }
 
-    _daemonArgv() {
+    // What watching and unlocking both need: the camera, the model and how it matches.
+    _commonArgv() {
         const s = this._settings;
         const model = s.get_string('model');
         const threshold = s.get_value('match-thresholds').deepUnpack()[model];
@@ -185,15 +242,22 @@ export default class FacelockExtension extends Extension {
             GLib.build_filenamev([this.path, 'daemon', 'facelock_daemon.py']),
             '--reference', this._referencePath(),
             '--device', s.get_string('camera-device'),
-            '--interval-ms', String(s.get_int('interval-ms')),
             '--detection-threshold', String(s.get_double('detection-threshold')),
             '--min-face-px', String(s.get_int('min-face-px')),
-            '--absence-grace', String(s.get_double('absence-grace-s')),
-            '--intruder-grace', String(s.get_double('intruder-grace-s')),
             '--model', model,
             '--compute', s.get_boolean('use-gpu') ? 'gpu' : 'cpu',
             // Without one set for this model, the daemon uses the model's own default.
             ...threshold === undefined ? [] : ['--match-threshold', String(threshold)],
+        ];
+    }
+
+    _daemonArgv() {
+        const s = this._settings;
+        return [
+            ...this._commonArgv(),
+            '--interval-ms', String(s.get_int('interval-ms')),
+            '--absence-grace', String(s.get_double('absence-grace-s')),
+            '--intruder-grace', String(s.get_double('intruder-grace-s')),
             ...s.get_boolean('share-camera') ? ['--share-camera'] : [],
         ];
     }
@@ -344,10 +408,15 @@ export default class FacelockExtension extends Extension {
 
     _onTrigger({kind, others}) {
         try {
-            if (kind === 'absent')
+            if (kind === 'absent') {
+                this._lockedByIntruder = false;
                 this._actions.lock();
-            else if (kind === 'intruder' && !this._collaboration)
+            } else if (kind === 'intruder' && !this._collaboration) {
+                // Then unlocking by face is off until the password has been used.
+                if (this._settings.get_string('intruder-action') === 'lock')
+                    this._lockedByIntruder = true;
                 this._actions.intruder(others);
+            }
             else if (kind === 'clear')
                 this._actions.clear();
         } catch (error) {

@@ -105,6 +105,26 @@
       <default>0</default>
       <summary>Changed whenever the reference image is replaced</summary>
     </key>
+    <key name="unlock-with-face" type="b">
+      <default>false</default>
+      <summary>Unlock the screen when your face is recognized after you wake it</summary>
+    </key>
+    <key name="unlock-liveness" type="b">
+      <default>true</default>
+      <summary>To unlock, also turn your head to one side and back, which a photo can't do</summary>
+    </key>
+    <key name="unlock-phone" type="b">
+      <default>false</default>
+      <summary>To unlock, also approve with the passkey on your paired phone</summary>
+    </key>
+    <key name="unlock-number-match" type="b">
+      <default>true</default>
+      <summary>On the phone, pick the number shown on the lock screen</summary>
+    </key>
+    <key name="relay-server" type="s">
+      <default>'https://ntfy.sh'</default>
+      <summary>The ntfy server that carries the phone's answers back</summary>
+    </key>
     <key name="enroll-active" type="b">
       <default>false</default>
       <summary>The preferences window is using the camera, so monitoring must pause</summary>

@@ -75,6 +75,8 @@ class InsightFaceBackend:
                 box=tuple(float(v) for v in box[:4]),
                 embedding=embedding / np.linalg.norm(embedding),
                 confidence=float(box[4]),
+                # The detector's five points are the eyes, the nose and the corners of the mouth.
+                landmarks=tuple((float(x), float(y)) for x, y in points[:3]),
             ))
         return found
 

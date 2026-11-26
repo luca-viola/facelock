@@ -7,8 +7,10 @@ A GNOME Shell extension that watches the camera with InsightFace `buffalo_l`.
   workspace, run a command, notify, or show giant eyes), and can also minimize the
   apps you pick.
 
-This is a convenience guard, not authentication. It has no liveness check, so a
-photo of you passes as you. Your normal unlock password stays the real security.
+It can also unlock the screen with your face, optionally with a head-turn check and an
+approval on your phone; see [Unlocking](#unlocking). Watching is a convenience guard, not
+authentication: it has no liveness check, so a photo of you passes as you. Your normal
+unlock password stays the real security.
 
 ## Install
 
@@ -71,10 +73,58 @@ split in two:
 | `extension/daemon/recognition.py`, `monitor.py`, `enrollment.py` | Telling you from others, the watch loop, and storing the reference |
 | `extension/daemon/protocol.py`, `errors.py`, `files.py` | Messages to the extension, exit codes, and private files |
 | `extension/daemon/policy.py` | Decides when to trigger, with no camera or model dependency |
+| `extension/unlocker.js`, `extension/daemon/unlock.py`, `liveness.py` | Unlocking from the lock screen |
+| `extension/daemon/phone.py`, `webpush.py`, `relay.py`, `web/` | Pairing a phone and approving on it |
 
-The camera is off whenever the screen is locked: GNOME disables the extension on
-lock, which kills the daemon. It starts again after you unlock, and the absence
-grace period starts over.
+Watching stops whenever the screen is locked, and the daemon with it. It starts again
+after you unlock, and the absence grace period starts over. On the lock screen the camera
+is only used for unlocking, if that's on.
+
+## Unlocking
+
+Turn on **Unlock with face** in Settings. On the lock screen, Facelock waits for you to wake
+the screen, press a key or move the mouse, then checks your face once. That check is stricter
+than watching: the match must be 0.1 above your match threshold for three frames, with nobody
+else in view. It gives up after 15 seconds; you get three tries per lock, then only the
+password. The password always works too. It doesn't try after a lock caused by another face,
+and not in the first 5 seconds after locking, so the key press that locked doesn't unlock.
+
+Two options make it safer, and you can combine them:
+
+- **Simple liveness detection** (on by default): you turn your head to one side and back. How far
+  the nose sits from the middle of the eyes changes when a real head turns, but not when a
+  photo is tilted. This stops a printed or on-screen photo, not a video of you.
+- **Use passkey on phone:** after your face is recognized, your phone asks you to approve with
+  Face ID or a fingerprint. The phone signs a single-use challenge with a passkey, and
+  Facelock checks the signature against the key it saved when pairing. **Also pick a number on
+  the phone** shows a number on the lock screen to pick on the phone, so you can't approve by
+  habit, and a wrong pick can't produce a valid signature.
+
+With neither, a photo of you unlocks the screen, and Settings says so.
+
+### The phone
+
+The phone side is a web page, [web/](web/), published at
+<https://luca-viola.github.io/facelock/>. Nothing to install from an app store, on iPhone or
+Android. To pair, press **Pair Phone** in Settings and scan the code, or open the page and type
+the code. On iPhone, add the page to the Home Screen first and open it from there, since iPhone
+only sends notifications to pages on the Home Screen (iOS 16.4 or later).
+
+- The computer sends each request as a Web Push notification, through Apple's or Google's
+  push service. It needs no server of Facelock's.
+- The phone's answer comes back through [ntfy](https://ntfy.sh), a public message service,
+  since a web page can't reach your computer directly. It's encrypted with a key only the phone
+  and the computer have, and the answer to an unlock isn't stored there. You can run your own
+  ntfy server and set it in **Relay server**, then pair again.
+- There's no proximity check: you could approve from another room. Facelock has already seen
+  only you at the screen by then, and the number check stops approving a request you didn't
+  start.
+- What the computer keeps is in `~/.local/share/facelock/phone.json`, readable only by you.
+  **Forget** deletes it. On the phone, **Forget** on the page drops the computer; remove the
+  passkey "Facelock: *computer*" from the phone's passwords too.
+
+Unlocking doesn't open your keyring at the first login after boot; that still needs the
+password.
 
 ## Behavior worth knowing
 
@@ -162,7 +212,7 @@ panel. To change them, edit `tools/make_icons.py`, which needs Shapely, and run 
 python -m unittest discover -s tests
 ```
 
-These need numpy but no camera, GPU or models. To test the gaze math:
+These need numpy and cryptography but no camera, GPU, models, network or phone. To test the gaze math:
 
 ```sh
 gjs -m tests/test_gaze.js

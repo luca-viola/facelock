@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Facelock</title>
+<meta name="description" content="Approve Facelock unlocks on your computer with this phone's passkey.">
+<meta name="theme-color" content="#16181d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Facelock">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon-192.png" alt="" width="44" height="44">
+    <h1>Facelock</h1>
+  </header>
+
+  <!-- Approving an unlock, opened from the notification. -->
+  <section id="approve" hidden>
+    <h2 id="approve-title">Unlock?</h2>
+    <p id="approve-hint" class="muted"></p>
+    <div id="numbers" class="numbers"></div>
+    <button id="approve-button" class="primary" hidden>Unlock</button>
+    <button id="deny-button" class="quiet">Not me</button>
+  </section>
+
+  <!-- Safari, before the page is on the Home Screen. -->
+  <section id="install" hidden>
+    <h2>Add Facelock to your Home Screen</h2>
+    <p>iPhone only sends notifications to pages on the Home Screen.</p>
+    <ol>
+      <li>Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</li>
+      <li>Open <strong>Facelock</strong> from the Home Screen.</li>
+      <li>Enter this code there:</li>
+    </ol>
+    <p id="install-code" class="code"></p>
+  </section>
+
+  <!-- Pairing with a computer. -->
+  <section id="pair" hidden>
+    <h2 id="pair-title">Pair with your computer</h2>
+    <p class="muted">In Facelock's settings on your computer, turn on <strong>Use passkey on phone</strong> and
+      press <strong>Pair Phone</strong>. Enter the code it shows.</p>
+    <form id="code-form">
+      <label for="code">Code</label>
+      <input id="code" autocomplete="off" autocapitalize="characters" spellcheck="false"
+             placeholder="XXXX-XXXX-XXXX" inputmode="text">
+      <details>
+        <summary>Relay server</summary>
+        <label for="relay">Only change this if your computer uses another ntfy server.</label>
+        <input id="relay" type="url" value="https://ntfy.sh">
+      </details>
+    </form>
+    <ol class="steps">
+      <li><button id="notify-button" class="primary">Allow notifications</button></li>
+      <li><button id="passkey-button" class="primary" disabled>Create passkey and pair</button></li>
+    </ol>
+  </section>
+
+  <!-- Nothing to do: the paired computers. -->
+  <section id="home" hidden>
+    <h2>Paired computers</h2>
+    <ul id="computers"></ul>
+    <p id="no-computers" class="muted">None yet.</p>
+    <button id="pair-another" class="primary">Pair a computer</button>
+  </section>
+
+  <p id="status" role="status"></p>
+</main>
+<footer>
+  <a href="https://github.com/luca-viola/facelock">Facelock on GitHub</a>
+</footer>
+</body>
+</html>

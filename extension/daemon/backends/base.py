@@ -18,6 +18,8 @@ class DetectedFace:
     box: tuple[float, float, float, float]  # x1, y1, x2, y2 in image pixels
     embedding: Any
     confidence: float | None = None  # None when the detector gives no score
+    # The two eyes and the tip of the nose as (x, y), in image pixels, or None. Liveness uses them.
+    landmarks: tuple | None = None
 
     @property
     def size(self):
