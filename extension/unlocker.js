@@ -33,13 +33,14 @@ export class Unlocker {
             style: 'font-size: 15pt; color: white; background-color: rgba(0,0,0,0.55); ' +
                 'padding: 10px 18px; border-radius: 12px; text-align: center;',
             visible: false,
+            // The lock screen's layer lays out with a BinLayout, which stretches a child over the
+            // whole screen unless told otherwise. So: centred, at the bottom, clear of the edge.
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.END,
+            x_expand: true,
+            y_expand: true,
+            margin_bottom: 96,
         });
-        this._label.add_constraint(new Clutter.AlignConstraint({
-            source: Main.layoutManager.screenShieldGroup, align_axis: Clutter.AlignAxis.X_AXIS, factor: 0.5,
-        }));
-        this._label.add_constraint(new Clutter.AlignConstraint({
-            source: Main.layoutManager.screenShieldGroup, align_axis: Clutter.AlignAxis.Y_AXIS, factor: 0.9,
-        }));
         Main.layoutManager.screenShieldGroup.add_child(this._label);
 
         if (lockedByIntruder) {
