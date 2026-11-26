@@ -29,19 +29,15 @@ export class Unlocker {
         this._armTimer = 0;
         this._idleMonitor = global.backend.get_core_idle_monitor();
 
-        this._label = new St.Label({
-            style: 'font-size: 15pt; color: white; background-color: rgba(0,0,0,0.55); ' +
-                'padding: 10px 18px; border-radius: 12px; text-align: center;',
-            visible: false,
-            // The lock screen's layer lays out with a BinLayout, which stretches a child over the
-            // whole screen unless told otherwise. So: centred, at the bottom, clear of the edge.
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.END,
-            x_expand: true,
-            y_expand: true,
-            margin_bottom: 96,
-        });
-        Main.layoutManager.screenShieldGroup.add_child(this._label);
+        // A message at the bottom of every screen, since you may be looking at any of them. The
+        // lock screen's layer stretches its children over the whole desktop, so this layer does,
+        // and places a box over each monitor inside it.
+        this._text = null;
+        this._layer = new St.Widget({layout_manager: new Clutter.FixedLayout(), x_expand: true, y_expand: true});
+        Main.layoutManager.screenShieldGroup.add_child(this._layer);
+        this._labels = [];
+        this._buildLabels();
+        Main.layoutManager.connectObject('monitors-changed', () => this._buildLabels(), this);
 
         if (lockedByIntruder) {
             // Whoever made it lock may still be there, so it's for the password.
@@ -64,14 +60,40 @@ export class Unlocker {
         this._watchId = 0;
         this._daemon?.stop();
         this._daemon = null;
-        this._label.destroy();
+        Main.layoutManager.disconnectObject(this);
+        this._layer.destroy();
+    }
+
+    _buildLabels() {
+        this._layer.destroy_all_children();
+        this._labels = Main.layoutManager.monitors.map(monitor => {
+            const box = new St.Widget({
+                layout_manager: new Clutter.BinLayout(),
+                x: monitor.x, y: monitor.y, width: monitor.width, height: monitor.height,
+            });
+            const label = new St.Label({
+                style: 'font-size: 15pt; color: white; background-color: rgba(0,0,0,0.55); ' +
+                    'padding: 10px 18px; border-radius: 12px; text-align: center;',
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.END,
+                x_expand: true,
+                y_expand: true,
+                margin_bottom: 96,
+            });
+            box.add_child(label);
+            this._layer.add_child(box);
+            return label;
+        });
+        this._say(this._text);
     }
 
     _say(text) {
-        this._label.text = text ?? '';
-        this._label.visible = Boolean(text);
+        this._text = text ?? null;
+        for (const label of this._labels)
+            label.text = this._text ?? '';
+        this._layer.visible = Boolean(this._text);
         // Kept above the lock screen's own widgets, which it adds after this.
-        Main.layoutManager.screenShieldGroup.set_child_above_sibling(this._label, null);
+        Main.layoutManager.screenShieldGroup.set_child_above_sibling(this._layer, null);
     }
 
     // Waits for the next key press, click or mouse movement.
