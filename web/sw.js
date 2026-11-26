@@ -1,5 +1,6 @@
 // Shows Facelock's notifications, and opens the page to approve when one is tapped.
 
+// Version 7.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 
@@ -15,6 +16,19 @@ function encodeRequest(request) {
 // message to the page when a notification opens it.
 const PENDING = 'facelock-pending';
 const PENDING_URL = 'pending-request';
+
+// A short record of what this worker did, shown at the bottom of the page for troubleshooting.
+async function log(text) {
+    try {
+        const cache = await caches.open(PENDING);
+        const old = await cache.match('log');
+        const lines = old ? await old.json() : [];
+        lines.push(`${new Date().toLocaleTimeString()} worker: ${text}`);
+        await cache.put('log', new Response(JSON.stringify(lines.slice(-12))));
+    } catch {
+        // Only for troubleshooting.
+    }
+}
 
 async function savePending(request) {
     const cache = await caches.open(PENDING);
@@ -47,17 +61,21 @@ self.addEventListener('push', event => {
     event.waitUntil(Promise.all([
         self.registration.showNotification(title, options),
         data.type === 'unlock' ? savePending(data) : Promise.resolve(),
+        log(`push ${data.type ?? 'unreadable'}`),
     ]));
 });
 
 self.addEventListener('notificationclick', event => {
     event.notification.close();
     const request = event.notification.data;
-    if (request?.type !== 'unlock')
+    if (request?.type !== 'unlock') {
+        event.waitUntil(log(`tapped ${request?.type ?? 'unknown'} notification`));
         return;
+    }
     event.waitUntil((async () => {
         await savePending(request);
         const windows = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
+        await log(`tapped unlock, ${windows.length} window(s) open`);
         for (const client of windows) {
             if ('focus' in client) {
                 client.postMessage({type: 'unlock', request});
