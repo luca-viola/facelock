@@ -11,6 +11,18 @@ function encodeRequest(request) {
     return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// The request waiting for an answer. Saved here, since iOS doesn't pass the address or a
+// message to the page when a notification opens it.
+const PENDING = 'facelock-pending';
+const PENDING_URL = 'pending-request';
+
+async function savePending(request) {
+    const cache = await caches.open(PENDING);
+    await cache.put(PENDING_URL, new Response(JSON.stringify(request), {
+        headers: {'Content-Type': 'application/json'},
+    }));
+}
+
 self.addEventListener('push', event => {
     let data = {};
     try {
@@ -32,7 +44,10 @@ self.addEventListener('push', event => {
         title = 'Facelock is paired';
         options.body = `${data.name} can now ask this phone to approve unlocking it.`;
     }
-    event.waitUntil(self.registration.showNotification(title, options));
+    event.waitUntil(Promise.all([
+        self.registration.showNotification(title, options),
+        data.type === 'unlock' ? savePending(data) : Promise.resolve(),
+    ]));
 });
 
 self.addEventListener('notificationclick', event => {
@@ -41,6 +56,7 @@ self.addEventListener('notificationclick', event => {
     if (request?.type !== 'unlock')
         return;
     event.waitUntil((async () => {
+        await savePending(request);
         const windows = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
         for (const client of windows) {
             if ('focus' in client) {

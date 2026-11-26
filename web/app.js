@@ -2,7 +2,7 @@
 // Nothing here is secret on its own: the computer checks every signature against the passkey it
 // saved at pairing, and only for a challenge it made itself.
 
-import {b64url, challengeFor, derivePairing, normalizeCode, randomBytes, seal, unb64url} from './crypto.js?v=4';
+import {b64url, challengeFor, derivePairing, normalizeCode, randomBytes, seal, unb64url} from './crypto.js?v=5';
 
 const DEFAULT_RELAY = 'https://ntfy.sh';
 const COMPUTERS_KEY = 'facelock.computers';
@@ -325,7 +325,7 @@ function showHome() {
 
 // --- Diagnostics: which page version this is, and whether the phone can keep a passkey. --- //
 
-const PAGE_VERSION = 4;
+const PAGE_VERSION = 5;
 
 async function diagnose() {
     let platform = 'unknown';
@@ -334,11 +334,35 @@ async function diagnose() {
     } catch {
         platform = 'no passkey support';
     }
-    $('diagnostics').textContent = `Page version ${PAGE_VERSION} · Passkeys on this phone: ${platform}`;
+    const paired = Object.keys(loadComputers()).length;
+    $('diagnostics').textContent =
+        `Page version ${PAGE_VERSION} · Passkeys on this phone: ${platform} · Paired computers: ${paired}`;
     if (platform !== 'yes') {
         status('This browser can\'t keep a passkey on this phone. On Android, turn on Google Password ' +
             'Manager or another passkey app in Settings, Passwords and accounts, and set a screen lock.', true);
     }
+}
+
+// --- The request the service worker saved when the notification came. --- //
+
+async function takePending() {
+    try {
+        const cache = await caches.open('facelock-pending');
+        const response = await cache.match('pending-request');
+        if (!response)
+            return null;
+        await cache.delete('pending-request');
+        const request = await response.json();
+        return request.expires * 1000 > Date.now() ? request : null;
+    } catch {
+        return null;
+    }
+}
+
+async function showPending() {
+    const request = await takePending();
+    if (request)
+        showApproval(request);
 }
 
 // --- Routing --- //
@@ -378,5 +402,11 @@ navigator.serviceWorker?.addEventListener('message', event => {
 });
 navigator.serviceWorker?.register('sw.js').catch(() => {});
 addEventListener('hashchange', route);
+// iOS brings the app back to the front for a notification, without reloading it.
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible')
+        showPending();
+});
 route();
+showPending();
 diagnose();
