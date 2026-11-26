@@ -65,4 +65,3 @@ footer { text-align: center; padding: 24px 0; font-size: 14px; }
 footer a { color: var(--muted); }
 #diagnostics { color: var(--muted); font-size: 13px; }
 button.quiet-strong { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-#log { color: var(--muted); font-size: 11px; text-align: left; white-space: pre-wrap; max-width: 480px; margin: 0 auto 12px; }

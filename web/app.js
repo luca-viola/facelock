@@ -4,7 +4,7 @@
 
 import {
     b64url, challengeFor, derivePairing, deviceSign, newDeviceKey, normalizeCode, randomBytes, seal, unb64url, unseal,
-} from './crypto.js?v=10';
+} from './crypto.js?v=11';
 
 const DEFAULT_RELAY = 'https://ntfy.sh';
 const COMPUTERS_KEY = 'facelock.computers';
@@ -58,28 +58,6 @@ function keyStore(mode, action) {
 const saveDeviceKey = (id, key) => keyStore('readwrite', store => store.put(key, id));
 const loadDeviceKey = id => keyStore('readonly', store => store.get(id));
 const deleteDeviceKey = id => keyStore('readwrite', store => store.delete(id));
-
-// --- A short record of what the page did, shown at the bottom for troubleshooting. --- //
-
-const pageLog = [];
-
-function note(text) {
-    pageLog.push(`${new Date().toLocaleTimeString()} page: ${text}`);
-    showLog();
-}
-
-async function showLog() {
-    let workerLines = [];
-    try {
-        const response = await (await caches.open('facelock-pending')).match('log');
-        workerLines = response ? await response.json() : [];
-    } catch {
-        // Only for troubleshooting.
-    }
-    const element = $('log');
-    if (element)
-        element.textContent = [...workerLines, ...pageLog].sort().slice(-16).join('\n');
-}
 
 // --- Small helpers --- //
 
@@ -214,7 +192,6 @@ async function pair(code, name, relay, withPasskey) {
 }
 
 function startPairing(code = '', name = '', relay = DEFAULT_RELAY) {
-    note(`pairing screen${code ? ' with a code' : ''}`);
     if (iOS() && !standalone()) {
         $('install-code').textContent = code;
         show('install');
@@ -307,7 +284,6 @@ async function send(request, computer, value) {
 
 function showApproval(request) {
     const computer = loadComputers()[request.topic];
-    note(`request ${request.topic?.slice(0, 14)}…, ${computer ? 'paired' : 'unknown computer'}`);
     if (!computer) {
         showHome();
         status('That request came from a computer this phone isn\'t paired with.', true);
@@ -404,7 +380,7 @@ function showHome() {
 
 // --- Diagnostics: which page version this is, and whether the phone can keep a passkey. --- //
 
-const PAGE_VERSION = 10;
+const PAGE_VERSION = 11;
 
 async function diagnose() {
     let platform = 'unknown';
@@ -440,7 +416,6 @@ async function takePending() {
 
 async function showPending() {
     const request = await takePending();
-    note(request ? 'found a saved request' : 'no saved request');
     if (request)
         showApproval(request);
 }
@@ -469,7 +444,6 @@ function listenForRequests() {
                 const request = await unseal(unb64url(computer.key), askTopic, message.message);
                 if (request?.type !== 'unlock' || request.topic !== topic)
                     return;
-                note('request from the relay');
                 takePending(); // handled here, so it mustn't show again later
                 showApproval(request);
             } catch {
@@ -478,7 +452,6 @@ function listenForRequests() {
         };
         listeners.push(source);
     }
-    note(`listening for ${listeners.length} computer(s)`);
 }
 
 // --- Routing --- //
@@ -493,7 +466,6 @@ function decodeRequest(text) {
 
 function route() {
     const params = new URLSearchParams(location.hash.slice(1));
-    note(`route ${[...params.keys()].join(',') || 'none'}`);
     if (params.has('r')) {
         const request = decodeRequest(params.get('r'));
         history.replaceState(null, '', location.pathname);
@@ -514,7 +486,6 @@ function route() {
 
 // The notification hands an open page the request directly, rather than reloading it.
 navigator.serviceWorker?.addEventListener('message', event => {
-    note(`message ${event.data?.type}`);
     if (event.data?.type === 'unlock') {
         takePending(); // already handled, so it mustn't show again later
         showApproval(event.data.request);
@@ -524,7 +495,6 @@ navigator.serviceWorker?.register('sw.js').catch(() => {});
 addEventListener('hashchange', route);
 // iOS brings the app back to the front for a notification, without reloading it.
 document.addEventListener('visibilitychange', () => {
-    note(document.visibilityState);
     if (document.visibilityState === 'visible') {
         listenForRequests();
         showPending();

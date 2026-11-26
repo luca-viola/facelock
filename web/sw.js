@@ -1,6 +1,6 @@
 // Shows Facelock's notifications, and opens the page to approve when one is tapped.
 
-// Version 10.
+// Version 11.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 
@@ -27,19 +27,6 @@ function encodeRequest(request) {
 const PENDING = 'facelock-pending';
 const PENDING_URL = 'pending-request';
 
-// A short record of what this worker did, shown at the bottom of the page for troubleshooting.
-async function log(text) {
-    try {
-        const cache = await caches.open(PENDING);
-        const old = await cache.match('log');
-        const lines = old ? await old.json() : [];
-        lines.push(`${new Date().toLocaleTimeString()} worker: ${text}`);
-        await cache.put('log', new Response(JSON.stringify(lines.slice(-12))));
-    } catch {
-        // Only for troubleshooting.
-    }
-}
-
 async function savePending(request) {
     const cache = await caches.open(PENDING);
     await cache.put(PENDING_URL, new Response(JSON.stringify(request), {
@@ -53,7 +40,6 @@ async function tellOpenPages(request) {
     const windows = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
     for (const client of windows)
         client.postMessage({type: 'unlock', request});
-    await log(`told ${windows.length} open page(s)`);
 }
 
 self.addEventListener('push', event => {
@@ -80,21 +66,17 @@ self.addEventListener('push', event => {
     event.waitUntil(Promise.all([
         self.registration.showNotification(title, options),
         data.type === 'unlock' ? savePending(data).then(() => tellOpenPages(data)) : Promise.resolve(),
-        log(`push ${data.type ?? 'unreadable'}`),
     ]));
 });
 
 self.addEventListener('notificationclick', event => {
     event.notification.close();
     const request = event.notification.data;
-    if (request?.type !== 'unlock') {
-        event.waitUntil(log(`tapped ${request?.type ?? 'unknown'} notification`));
+    if (request?.type !== 'unlock')
         return;
-    }
     event.waitUntil((async () => {
         await savePending(request);
         const windows = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
-        await log(`tapped unlock, ${windows.length} window(s) open`);
         for (const client of windows) {
             if ('focus' in client) {
                 client.postMessage({type: 'unlock', request});

@@ -3,7 +3,7 @@ name: Phone page
 
 on:
   push:
-    branches: [main, unlock]  # unlock: until it is merged
+    branches: [main]
     paths: [web/**, .github/workflows/pages.yml]
   workflow_dispatch:
 
