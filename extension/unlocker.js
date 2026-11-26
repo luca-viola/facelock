@@ -29,15 +29,12 @@ export class Unlocker {
         this._armTimer = 0;
         this._idleMonitor = global.backend.get_core_idle_monitor();
 
-        // A message at the bottom of every screen, since you may be looking at any of them. The
-        // lock screen's layer stretches its children over the whole desktop, so this layer does,
-        // and places a box over each monitor inside it.
+        // A message at the bottom of every screen, since you may be looking at any of them. It's
+        // only on the lock screen while there's something to say: with it there all the time,
+        // the lock screen sometimes froze.
         this._text = null;
-        this._layer = new St.Widget({layout_manager: new Clutter.FixedLayout(), x_expand: true, y_expand: true});
-        Main.layoutManager.screenShieldGroup.add_child(this._layer);
-        this._labels = [];
-        this._buildLabels();
-        Main.layoutManager.connectObject('monitors-changed', () => this._buildLabels(), this);
+        this._layer = null;
+        Main.layoutManager.connectObject('monitors-changed', () => this._say(this._text), this);
 
         if (lockedByIntruder) {
             // Whoever made it lock may still be there, so it's for the password.
@@ -61,12 +58,19 @@ export class Unlocker {
         this._daemon?.stop();
         this._daemon = null;
         Main.layoutManager.disconnectObject(this);
-        this._layer.destroy();
+        this._removeLayer();
     }
 
-    _buildLabels() {
-        this._layer.destroy_all_children();
-        this._labels = Main.layoutManager.monitors.map(monitor => {
+    _removeLayer() {
+        this._layer?.destroy();
+        this._layer = null;
+    }
+
+    // The lock screen's layer stretches its children over the whole desktop, so this layer does,
+    // and places a box over each monitor inside it.
+    _addLayer() {
+        this._layer = new St.Widget({layout_manager: new Clutter.FixedLayout(), x_expand: true, y_expand: true});
+        for (const monitor of Main.layoutManager.monitors) {
             const box = new St.Widget({
                 layout_manager: new Clutter.BinLayout(),
                 x: monitor.x, y: monitor.y, width: monitor.width, height: monitor.height,
@@ -82,18 +86,20 @@ export class Unlocker {
             });
             box.add_child(label);
             this._layer.add_child(box);
-            return label;
-        });
-        this._say(this._text);
+        }
+        Main.layoutManager.screenShieldGroup.add_child(this._layer);
     }
 
+    // Shows text on every screen, or removes the message with null. Rebuilt each time, which is
+    // cheap, and also follows screens being plugged in or out.
     _say(text) {
         this._text = text ?? null;
-        for (const label of this._labels)
-            label.text = this._text ?? '';
-        this._layer.visible = Boolean(this._text);
-        // Kept above the lock screen's own widgets, which it adds after this.
-        Main.layoutManager.screenShieldGroup.set_child_above_sibling(this._layer, null);
+        this._removeLayer();
+        if (!this._text)
+            return;
+        this._addLayer();
+        for (const box of this._layer.get_children())
+            box.get_first_child().text = this._text;
     }
 
     // Waits for the next key press, click or mouse movement.

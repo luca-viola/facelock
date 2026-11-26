@@ -79,8 +79,13 @@ def run_monitor(args, emit):
 
 def run_unlock(args, emit):
     import phone
+    from backends import onnx_sessions
 
     watch_stdin()
+    # Gentle on the processor, since GNOME draws the lock screen meanwhile and stalled on
+    # Asahi Linux while the model loaded at full speed.
+    os.nice(10)
+    onnx_sessions.CPU_THREADS = min(2, onnx_sessions.CPU_THREADS)
     paired = None
     if args.phone:
         paired = phone.load_phone()
