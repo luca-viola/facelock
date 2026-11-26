@@ -22,3 +22,4 @@ macos/build/
 macos/dist/
 macos/FaceGuardApp/.build/
 macos/python-env/
+!web/*.png
