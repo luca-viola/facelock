@@ -1,6 +1,6 @@
 // Shows Facelock's notifications, and opens the page to approve when one is tapped.
 
-// Version 9.
+// Version 10.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 

@@ -3,8 +3,8 @@
 // saved at pairing, and only for a challenge it made itself.
 
 import {
-    b64url, challengeFor, derivePairing, deviceSign, newDeviceKey, normalizeCode, randomBytes, seal, unb64url,
-} from './crypto.js?v=9';
+    b64url, challengeFor, derivePairing, deviceSign, newDeviceKey, normalizeCode, randomBytes, seal, unb64url, unseal,
+} from './crypto.js?v=10';
 
 const DEFAULT_RELAY = 'https://ntfy.sh';
 const COMPUTERS_KEY = 'facelock.computers';
@@ -247,6 +247,7 @@ function startPairing(code = '', name = '', relay = DEFAULT_RELAY) {
             await pair($('code').value, name || 'computer', $('relay').value || DEFAULT_RELAY, withPasskey);
             history.replaceState(null, '', location.pathname);
             showHome();
+            listenForRequests();
             status('Paired. A test notification is on its way.');
         } catch (error) {
             button.disabled = false;
@@ -403,7 +404,7 @@ function showHome() {
 
 // --- Diagnostics: which page version this is, and whether the phone can keep a passkey. --- //
 
-const PAGE_VERSION = 9;
+const PAGE_VERSION = 10;
 
 async function diagnose() {
     let platform = 'unknown';
@@ -442,6 +443,42 @@ async function showPending() {
     note(request ? 'found a saved request' : 'no saved request');
     if (request)
         showApproval(request);
+}
+
+// --- Requests for a page that's open --- //
+
+// While the page is on screen, it also listens on the relay, where the computer posts each request
+// too. iOS shows no notification for an app in the foreground and doesn't always pass the push on.
+let listeners = [];
+
+function stopListening() {
+    listeners.forEach(source => source.close());
+    listeners = [];
+}
+
+function listenForRequests() {
+    stopListening();
+    for (const [topic, computer] of Object.entries(loadComputers())) {
+        const askTopic = `${topic}-ask`;
+        const source = new EventSource(`${computer.relay.replace(/\/+$/, '')}/${askTopic}/sse`);
+        source.onmessage = async event => {
+            try {
+                const message = JSON.parse(event.data);
+                if (message.event !== 'message')
+                    return;
+                const request = await unseal(unb64url(computer.key), askTopic, message.message);
+                if (request?.type !== 'unlock' || request.topic !== topic)
+                    return;
+                note('request from the relay');
+                takePending(); // handled here, so it mustn't show again later
+                showApproval(request);
+            } catch {
+                // Not sealed with this computer's key: someone else's, so ignored.
+            }
+        };
+        listeners.push(source);
+    }
+    note(`listening for ${listeners.length} computer(s)`);
 }
 
 // --- Routing --- //
@@ -489,10 +526,14 @@ addEventListener('hashchange', route);
 document.addEventListener('visibilitychange', () => {
     note(document.visibilityState);
     if (document.visibilityState === 'visible') {
+        listenForRequests();
         showPending();
         diagnose();
+    } else {
+        stopListening();
     }
 });
 route();
+listenForRequests();
 showPending();
 diagnose();

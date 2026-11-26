@@ -399,6 +399,10 @@ class FakeRelay:
 
     def __init__(self, answer):
         self.answer = answer
+        self.published = []
+
+    def publish(self, topic, text, keep=True):
+        self.published.append((topic, text, keep))
 
     def listen(self, topic, timeout_s, on_open=lambda: None):
         on_open()
@@ -497,6 +501,21 @@ class ApproveTest(unittest.TestCase):
             answer["pick"] = shown
             return answer
         self.assertEqual(self.approve(lying), "The phone's answer didn't check out")
+
+    def test_the_request_also_goes_to_an_open_page(self):
+        relays = []
+
+        def make(_server):
+            relays.append(FakeRelay(lambda topic: iter([])))
+            return relays[-1]
+
+        with mock.patch.object(phone, "Relay", make):
+            phone.approve(self.phone, True, lambda event, **fields: None, timeout_s=1)
+        (topic, text, keep), = relays[0].published
+        self.assertEqual(topic, self.phone["topic"] + "-ask")
+        self.assertFalse(keep)
+        request = relay.unseal(webpush.unb64url(self.phone["key"]), topic, text)
+        self.assertEqual(request, self.pushed[0])
 
     def test_without_number_matching(self):
         self.assertIsNone(self.approve(lambda request, _shown: self.signed(request, None), number_match=False))

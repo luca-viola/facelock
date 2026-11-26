@@ -21,7 +21,7 @@ import time
 from errors import GuardError
 from files import private_dir, write_private
 from paths import APP_DIR, data_home, runtime_home
-from relay import DEFAULT_SERVER, Relay, unseal
+from relay import DEFAULT_SERVER, Relay, seal, unseal
 from webpush import b64url, unb64url
 
 log = logging.getLogger("facelock")
@@ -266,6 +266,11 @@ def verify_assertion(phone, answer, challenge):
     return True
 
 
+def asking_topic(topic):
+    """Where requests go for a phone page that's open. Answers come back on topic itself."""
+    return f"{topic}-ask"
+
+
 def approve(phone, number_match, emit, timeout_s=APPROVE_TIMEOUT_S):
     """Asks the phone to approve. Returns None if it did, or why not as a short sentence."""
     nonce = os.urandom(32)
@@ -278,6 +283,13 @@ def approve(phone, number_match, emit, timeout_s=APPROVE_TIMEOUT_S):
 
     def ask():
         push(phone, payload)
+        # Also straight to the page if it's open: iOS shows no notification for an app in the
+        # foreground, and doesn't always pass the push on to it. Not stored, and only a help.
+        ask_topic = asking_topic(phone["topic"])
+        try:
+            relay.publish(ask_topic, seal(key, ask_topic, payload), keep=False)
+        except Exception as error:
+            log.info("Couldn't post the request for an open page: %s", error)
         emit("unlock_step", step="phone", number=shown)
 
     try:
