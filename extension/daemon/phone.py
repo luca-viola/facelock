@@ -32,6 +32,13 @@ CODE_LENGTH = 12  # 60 bits
 PAIR_TIMEOUT_S = 600
 APPROVE_TIMEOUT_S = 60
 
+# What the phone signs with. A passkey asks for Face ID or a fingerprint each time. Where the
+# phone can't make one, the page makes its own key, which Chrome won't let be copied out, and
+# the phone's screen lock is what protects it.
+PASSKEY = "passkey"
+DEVICE_KEY = "device"
+DEVICE_KEY_CONTEXT = b"facelock device-key approval\x00"  # web/app.js signs the same
+
 
 def phone_path():
     return os.path.join(data_home(), APP_DIR, "phone.json")
@@ -89,6 +96,8 @@ def check_pairing_reply(reply):
             raise ValueError(f"no {field}")
     load_der_public_key(unb64url(reply["public_key"]))
     vapid_key_from_jwk(**{k: reply["vapid"][k] for k in ("d", "x", "y")})
+    if reply.get("kind", PASSKEY) not in (PASSKEY, DEVICE_KEY):
+        raise ValueError("unknown kind of key")
     if len(unb64url(reply["key"])) != 32 or not re.fullmatch(r"[-_A-Za-z0-9]{16,64}", reply["topic"]):
         raise ValueError("bad relay topic or key")
     subscription = reply["subscription"]
@@ -124,6 +133,7 @@ def pair(relay_server, page_url, emit, timeout_s=PAIR_TIMEOUT_S):
             phone = {
                 "page_url": page_url,
                 "relay": relay_server.rstrip("/"),
+                "kind": reply.get("kind", PASSKEY),
                 "credential": reply["credential"],
                 "public_key": reply["public_key"],
                 "subscription": reply["subscription"],
@@ -136,7 +146,7 @@ def pair(relay_server, page_url, emit, timeout_s=PAIR_TIMEOUT_S):
             private_dir(os.path.dirname(phone_path()))
             write_private(phone_path(), json.dumps(phone, indent=2).encode())
             push(phone, {"v": 1, "type": "paired", "name": name})
-            emit("paired", device=phone["device"])
+            emit("paired", device=phone["device"], kind=phone["kind"])
             return
     finally:
         try:
@@ -190,6 +200,35 @@ def number_choices(rng=secrets.SystemRandom()):
 def challenge_for(nonce, pick):
     """What the passkey signs: the nonce bound to the number picked, so a wrong pick can't pass."""
     return hashlib.sha256(nonce + str(pick or "").encode()).digest()
+
+
+def verify_answer(phone, answer, challenge):
+    """Whether answer is the paired phone's signature over challenge."""
+    if phone.get("kind", PASSKEY) == DEVICE_KEY:
+        return verify_device_signature(phone, answer, challenge)
+    return verify_assertion(phone, answer, challenge)
+
+
+def verify_device_signature(phone, answer, challenge):
+    """Whether answer is the page's device key signing challenge. WebCrypto gives r and s as is."""
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
+    from cryptography.hazmat.primitives.serialization import load_der_public_key
+
+    try:
+        if answer.get("credential") != phone["credential"]:
+            return False
+        raw = unb64url(answer["signature"])
+        if len(raw) != 64:
+            return False
+        signature = encode_dss_signature(int.from_bytes(raw[:32], "big"), int.from_bytes(raw[32:], "big"))
+        public_key = load_der_public_key(unb64url(phone["public_key"]))
+        public_key.verify(signature, DEVICE_KEY_CONTEXT + challenge, ec.ECDSA(hashes.SHA256()))
+    except (InvalidSignature, KeyError, ValueError, TypeError, AttributeError):
+        return False
+    return True
 
 
 def verify_assertion(phone, answer, challenge):
@@ -250,7 +289,7 @@ def approve(phone, number_match, emit, timeout_s=APPROVE_TIMEOUT_S):
                 return "Declined on the phone"
             if number_match and answer.get("pick") != shown:
                 return "That wasn't the number on the screen"
-            if verify_assertion(phone, answer, challenge):
+            if verify_answer(phone, answer, challenge):
                 return None
             return "The phone's answer didn't check out"
     except GuardError as error:

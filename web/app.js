@@ -2,7 +2,9 @@
 // Nothing here is secret on its own: the computer checks every signature against the passkey it
 // saved at pairing, and only for a challenge it made itself.
 
-import {b64url, challengeFor, derivePairing, normalizeCode, randomBytes, seal, unb64url} from './crypto.js?v=5';
+import {
+    b64url, challengeFor, derivePairing, deviceSign, newDeviceKey, normalizeCode, randomBytes, seal, unb64url,
+} from './crypto.js?v=6';
 
 const DEFAULT_RELAY = 'https://ntfy.sh';
 const COMPUTERS_KEY = 'facelock.computers';
@@ -37,6 +39,25 @@ async function vapidKey() {
     localStorage.setItem(VAPID_KEY, JSON.stringify(key));
     return key;
 }
+
+// Device keys, for phones that can't make a passkey. IndexedDB, since it can hold a key that
+// can't be copied out, which localStorage can't.
+function keyStore(mode, action) {
+    return new Promise((resolve, reject) => {
+        const open = indexedDB.open('facelock', 1);
+        open.onupgradeneeded = () => open.result.createObjectStore('keys');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+            const request = action(open.result.transaction('keys', mode).objectStore('keys'));
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        };
+    });
+}
+
+const saveDeviceKey = (id, key) => keyStore('readwrite', store => store.put(key, id));
+const loadDeviceKey = id => keyStore('readonly', store => store.get(id));
+const deleteDeviceKey = id => keyStore('readwrite', store => store.delete(id));
 
 // --- Small helpers --- //
 
@@ -109,9 +130,8 @@ async function pushSubscription() {
     return registration.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: unb64url(vapid.raw)});
 }
 
-async function pair(code, name, relay) {
-    if (normalizeCode(code).length !== 12)
-        throw new Error('The code has 12 letters and digits.');
+// A passkey: Face ID or a fingerprint for every approval.
+async function createPasskey(name) {
     // Created first, while the tap still counts as one: Safari asks for it.
     const credential = await navigator.credentials.create({
         publicKey: {
@@ -130,7 +150,21 @@ async function pair(code, name, relay) {
     });
     if (credential.response.getPublicKeyAlgorithm?.() !== -7)
         throw new Error('The passkey doesn\'t use a key type Facelock can check.');
-    const publicKey = credential.response.getPublicKey();
+    return {kind: 'passkey', credential: b64url(credential.rawId), publicKey: b64url(credential.response.getPublicKey())};
+}
+
+// For phones that can't make a passkey: a key of the page's own, protected by the phone's lock.
+async function createDeviceKey() {
+    const {privateKey, spki} = await newDeviceKey();
+    const credential = b64url(randomBytes(16));
+    await saveDeviceKey(credential, privateKey);
+    return {kind: 'device', credential, publicKey: b64url(spki)};
+}
+
+async function pair(code, name, relay, withPasskey) {
+    if (normalizeCode(code).length !== 12)
+        throw new Error('The code has 12 letters and digits.');
+    const signer = withPasskey ? await createPasskey(name) : await createDeviceKey();
 
     status('Pairing…');
     const subscription = (await pushSubscription()).toJSON();
@@ -138,8 +172,9 @@ async function pair(code, name, relay) {
     const relayTopic = `facelock-${[...randomBytes(16)].map(b => b.toString(16).padStart(2, '0')).join('')}`;
     const relayKey = randomBytes(32);
     const reply = {
-        credential: b64url(credential.rawId),
-        public_key: b64url(publicKey),
+        kind: signer.kind,
+        credential: signer.credential,
+        public_key: signer.publicKey,
         subscription: {endpoint: subscription.endpoint, keys: subscription.keys},
         vapid: {d: vapid.d, x: vapid.x, y: vapid.y},
         topic: relayTopic,
@@ -151,7 +186,7 @@ async function pair(code, name, relay) {
 
     const computers = loadComputers();
     computers[relayTopic] = {
-        name, relay, key: b64url(relayKey), credential: b64url(credential.rawId), pairedAt: Date.now(),
+        name, relay, key: b64url(relayKey), kind: signer.kind, credential: signer.credential, pairedAt: Date.now(),
     };
     saveComputers(computers);
 }
@@ -182,22 +217,31 @@ function startPairing(code = '', name = '', relay = DEFAULT_RELAY) {
             status(error.message, true);
         }
     };
-    $('passkey-button').onclick = async () => {
-        $('passkey-button').disabled = true;
+    $('device-button').hidden = true;
+    const pairWith = async (button, withPasskey) => {
+        button.disabled = true;
         try {
-            await pair($('code').value, name || 'computer', $('relay').value || DEFAULT_RELAY);
+            await pair($('code').value, name || 'computer', $('relay').value || DEFAULT_RELAY, withPasskey);
             history.replaceState(null, '', location.pathname);
             showHome();
             status('Paired. A test notification is on its way.');
         } catch (error) {
-            $('passkey-button').disabled = false;
+            button.disabled = false;
             console.error(error);
+            if (!withPasskey) {
+                status(`${error.name}: ${error.message}`, true);
+                return;
+            }
+            // Some phones can't make a passkey for any site. Offer the page's own key instead.
+            $('device-button').hidden = false;
             status(error.name === 'NotAllowedError'
-                ? 'The passkey wasn\'t created. The phone needs somewhere to keep passkeys: on Android, ' +
-                  'Google Password Manager or another passkey app, turned on in Settings, Passwords and accounts.'
-                : `${error.name}: ${error.message}`, true);
+                ? 'The passkey wasn\'t created. If the phone only offered security keys or another device, ' +
+                  'it can\'t keep passkeys: pair without one below.'
+                : `The phone couldn't make a passkey (${error.name}). Pair without one below.`, true);
         }
     };
+    $('passkey-button').onclick = () => pairWith($('passkey-button'), true);
+    $('device-button').onclick = () => pairWith($('device-button'), false);
     $('code-form').onsubmit = event => event.preventDefault();
 }
 
@@ -205,6 +249,13 @@ function startPairing(code = '', name = '', relay = DEFAULT_RELAY) {
 
 async function answer(request, computer, pick) {
     const nonce = unb64url(request.nonce);
+    if (computer.kind === 'device') {
+        const key = await loadDeviceKey(computer.credential);
+        if (!key)
+            throw new Error('This phone\'s key for that computer is gone. Pair again.');
+        const signature = await deviceSign(key, await challengeFor(nonce, pick));
+        return {nonce: request.nonce, pick, credential: computer.credential, signature: b64url(signature)};
+    }
     const assertion = await navigator.credentials.get({
         publicKey: {
             challenge: await challengeFor(nonce, pick),
@@ -306,15 +357,18 @@ function showHome() {
     for (const [topic, computer] of Object.entries(computers)) {
         const item = document.createElement('li');
         const label = document.createElement('span');
-        label.textContent = computer.name;
+        label.textContent = computer.kind === 'device' ? `${computer.name} (without a passkey)` : computer.name;
         const forget = document.createElement('button');
         forget.textContent = 'Forget';
         forget.onclick = () => {
             const remaining = loadComputers();
             delete remaining[topic];
             saveComputers(remaining);
+            if (computer.kind === 'device')
+                deleteDeviceKey(computer.credential).catch(() => {});
             showHome();
-            status(`Forgotten. Also remove the passkey "Facelock: ${computer.name}" from the phone's passwords.`);
+            status(computer.kind === 'device' ? 'Forgotten.'
+                : `Forgotten. Also remove the passkey "Facelock: ${computer.name}" from the phone's passwords.`);
         };
         item.append(label, forget);
         list.append(item);
@@ -325,7 +379,7 @@ function showHome() {
 
 // --- Diagnostics: which page version this is, and whether the phone can keep a passkey. --- //
 
-const PAGE_VERSION = 5;
+const PAGE_VERSION = 6;
 
 async function diagnose() {
     let platform = 'unknown';

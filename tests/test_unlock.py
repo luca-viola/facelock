@@ -292,6 +292,64 @@ class VerifyAssertionTest(unittest.TestCase):
             phone.page_origin("http://example.org/")
 
 
+class DeviceKey:
+    """Signs like the page's own key does on a phone without passkeys."""
+
+    def __init__(self):
+        self.key = ec.generate_private_key(ec.SECP256R1())
+        self.credential = webpush.b64url(os.urandom(16))
+
+    def phone(self):
+        spki = self.key.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+        return {"kind": phone.DEVICE_KEY, "credential": self.credential, "public_key": webpush.b64url(spki),
+                "page_url": phone.PAGE_URL}
+
+    def sign(self, challenge, context=None):
+        from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
+
+        context = phone.DEVICE_KEY_CONTEXT if context is None else context
+        r, s = decode_dss_signature(self.key.sign(context + challenge, ec.ECDSA(hashes.SHA256())))
+        return {"credential": self.credential, "signature": webpush.b64url(r.to_bytes(32, "big") + s.to_bytes(32, "big"))}
+
+
+class DeviceKeyTest(unittest.TestCase):
+    def setUp(self):
+        self.device = DeviceKey()
+        self.phone = self.device.phone()
+        self.challenge = phone.challenge_for(b"nonce", 42)
+
+    def test_accepts_the_device_key_signing_the_challenge(self):
+        self.assertTrue(phone.verify_answer(self.phone, self.device.sign(self.challenge), self.challenge))
+
+    def test_rejects_another_challenge_or_context(self):
+        self.assertFalse(phone.verify_answer(self.phone, self.device.sign(phone.challenge_for(b"nonce", 43)),
+                                             self.challenge))
+        self.assertFalse(phone.verify_answer(self.phone, self.device.sign(self.challenge, context=b""),
+                                             self.challenge))
+
+    def test_rejects_another_key(self):
+        answer = DeviceKey().sign(self.challenge)
+        answer["credential"] = self.device.credential
+        self.assertFalse(phone.verify_answer(self.phone, answer, self.challenge))
+
+    def test_a_passkey_pairing_does_not_take_a_device_signature(self):
+        passkey_phone = {**self.phone, "kind": phone.PASSKEY}
+        self.assertFalse(phone.verify_answer(passkey_phone, self.device.sign(self.challenge), self.challenge))
+
+    def test_matches_the_page(self):
+        # web/app.js signed this in Chrome, with the key below, for challenge_for(AAECAw, 42).
+        page = json.loads(PAGE_DEVICE_SIGNATURE)
+        device_phone = {"kind": phone.DEVICE_KEY, "credential": "c", "public_key": page["public_key"],
+                        "page_url": phone.PAGE_URL}
+        challenge = phone.challenge_for(webpush.unb64url("AAECAw"), 42)
+        self.assertTrue(phone.verify_answer(device_phone, {"credential": "c", "signature": page["signature"]},
+                                            challenge))
+
+
+PAGE_DEVICE_SIGNATURE = '{"public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEw_ucSkxXj7OlK8599pPP0d0NCRDZkSziZqVygsqjyj5ipew18NocD8l0oGdtBYZoReCXJ_m41cx4PyGTbmzTGA", "signature": "C95kppz3oDmvbxX191bg0-XHqXM4z_EhalsRevqO3bBbtkMpKKav3dGtqDcFFmsixlXllYwusTNVHH9kfS45IQ"}'
+
+
 class PairingCodeTest(unittest.TestCase):
     def test_code_is_twelve_unambiguous_characters(self):
         code = phone.new_code()
@@ -370,7 +428,7 @@ class PairTest(unittest.TestCase):
         with mock.patch.object(phone, "Relay", lambda _server: FakeRelay(answers)), \
                 mock.patch.object(phone, "push") as push:
             phone.pair("https://ntfy.sh", phone.PAGE_URL, lambda event, **fields: events.append((event, fields)))
-        self.assertEqual(events[-1], ("paired", {"device": "iPhone"}))
+        self.assertEqual(events[-1], ("paired", {"device": "iPhone", "kind": "passkey"}))
         saved = phone.load_phone()
         self.assertEqual(saved["credential"], reply["credential"])
         self.assertEqual(saved["topic"], reply["topic"])

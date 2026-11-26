@@ -70,3 +70,18 @@ export async function challengeFor(nonce, pick) {
     const pickBytes = encoder.encode(pick === null || pick === undefined ? '' : String(pick));
     return new Uint8Array(await crypto.subtle.digest('SHA-256', concat(nonce, pickBytes)));
 }
+
+// What the page's own device key signs, where the phone can't make a passkey. Same as
+// DEVICE_KEY_CONTEXT and verify_device_signature() in phone.py.
+const DEVICE_KEY_CONTEXT = encoder.encode('facelock device-key approval\0');
+
+export async function deviceSign(privateKey, challenge) {
+    return new Uint8Array(await crypto.subtle.sign(
+        {name: 'ECDSA', hash: 'SHA-256'}, privateKey, concat(DEVICE_KEY_CONTEXT, challenge)));
+}
+
+// A signing key the page can use but nobody can copy out, not even the page.
+export async function newDeviceKey() {
+    const pair = await crypto.subtle.generateKey({name: 'ECDSA', namedCurve: 'P-256'}, false, ['sign']);
+    return {privateKey: pair.privateKey, spki: new Uint8Array(await crypto.subtle.exportKey('spki', pair.publicKey))};
+}

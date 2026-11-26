@@ -36,7 +36,7 @@ self.addEventListener('push', event => {
         title = `Unlock ${data.name}?`;
         options.body = Array.isArray(data.numbers)
             ? 'Tap, then pick the number on the lock screen.'
-            : 'Tap to approve with Face ID or your fingerprint.';
+            : 'Tap to approve.';
         options.tag = `facelock-${data.topic}`;
         options.renotify = true;
         options.requireInteraction = true;

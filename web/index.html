@@ -13,7 +13,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 </head>
 <body>
 <main>
@@ -62,6 +62,9 @@
       <li><button id="notify-button" class="primary">Allow notifications</button></li>
       <li><button id="passkey-button" class="primary" disabled>Create passkey and pair</button></li>
     </ol>
+    <div id="device-button-box">
+      <button id="device-button" class="quiet-strong" hidden>Pair without a passkey</button>
+    </div>
   </section>
 
   <!-- Nothing to do: the paired computers. -->
