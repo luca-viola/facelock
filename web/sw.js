@@ -1,6 +1,6 @@
 // Shows Facelock's notifications, and opens the page to approve when one is tapped.
 
-// Version 7.
+// Version 8.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 
@@ -37,6 +37,15 @@ async function savePending(request) {
     }));
 }
 
+// A page already on screen gets the request at once: iOS shows no notification for an app
+// that's in the foreground, so there'd be nothing to tap.
+async function tellOpenPages(request) {
+    const windows = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
+    for (const client of windows)
+        client.postMessage({type: 'unlock', request});
+    await log(`told ${windows.length} open page(s)`);
+}
+
 self.addEventListener('push', event => {
     let data = {};
     try {
@@ -60,7 +69,7 @@ self.addEventListener('push', event => {
     }
     event.waitUntil(Promise.all([
         self.registration.showNotification(title, options),
-        data.type === 'unlock' ? savePending(data) : Promise.resolve(),
+        data.type === 'unlock' ? savePending(data).then(() => tellOpenPages(data)) : Promise.resolve(),
         log(`push ${data.type ?? 'unreadable'}`),
     ]));
 });

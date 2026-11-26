@@ -4,7 +4,7 @@
 
 import {
     b64url, challengeFor, derivePairing, deviceSign, newDeviceKey, normalizeCode, randomBytes, seal, unb64url,
-} from './crypto.js?v=7';
+} from './crypto.js?v=8';
 
 const DEFAULT_RELAY = 'https://ntfy.sh';
 const COMPUTERS_KEY = 'facelock.computers';
@@ -403,7 +403,7 @@ function showHome() {
 
 // --- Diagnostics: which page version this is, and whether the phone can keep a passkey. --- //
 
-const PAGE_VERSION = 7;
+const PAGE_VERSION = 8;
 
 async function diagnose() {
     let platform = 'unknown';
@@ -478,8 +478,10 @@ function route() {
 // The notification hands an open page the request directly, rather than reloading it.
 navigator.serviceWorker?.addEventListener('message', event => {
     note(`message ${event.data?.type}`);
-    if (event.data?.type === 'unlock')
+    if (event.data?.type === 'unlock') {
+        takePending(); // already handled, so it mustn't show again later
         showApproval(event.data.request);
+    }
 });
 navigator.serviceWorker?.register('sw.js').catch(() => {});
 addEventListener('hashchange', route);
