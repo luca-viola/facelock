@@ -41,14 +41,17 @@ export class Unlocker {
             this._say('Locked because someone else was in view. Use your password.');
             return;
         }
+        console.log('Facelock: unlocker created');
         this._armTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, ARM_DELAY_S, () => {
             this._armTimer = 0;
+            console.log('Facelock: unlocker armed');
             this._arm();
             return GLib.SOURCE_REMOVE;
         });
     }
 
     destroy() {
+        console.log('Facelock: unlocker destroyed');
         if (this._armTimer)
             GLib.source_remove(this._armTimer);
         this._armTimer = 0;
@@ -111,6 +114,7 @@ export class Unlocker {
     }
 
     _try() {
+        console.log(`Facelock: activity on the lock screen, attempt ${this._attempts + 1}`);
         if (this._daemon || this._attempts >= MAX_ATTEMPTS)
             return;
         this._attempts++;

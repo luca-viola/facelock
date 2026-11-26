@@ -118,6 +118,7 @@ export default class FacelockExtension extends Extension {
     // still stops while locked, just as if it were disabled, so locking can't fire again until
     // you're back. On the lock screen, only the Unlocker runs, and only if Unlock with face is on.
     enable() {
+        console.log(`Facelock: enable, session mode ${Main.sessionMode.currentMode}`);
         this._settings = this.getSettings();
         this._lockedByIntruder = false;
         this._unlocker = null;
@@ -127,6 +128,7 @@ export default class FacelockExtension extends Extension {
     }
 
     disable() {
+        console.log(`Facelock: disable, session mode ${Main.sessionMode.currentMode}`);
         Main.sessionMode.disconnectObject(this);
         this._stopUnlocker();
         if (this._user)
@@ -135,6 +137,9 @@ export default class FacelockExtension extends Extension {
     }
 
     _syncSessionMode() {
+        // For finding the lock-screen freeze: what happens at locking, and in what order.
+        console.log(`Facelock: session mode ${Main.sessionMode.currentMode}, locked ${Main.sessionMode.isLocked}, ` +
+            `shield active ${Main.screenShield?.active}, user part ${this._user}, unlocker ${Boolean(this._unlocker)}`);
         if (Main.sessionMode.isLocked) {
             if (this._user)
                 this._leaveUser();
