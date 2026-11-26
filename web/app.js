@@ -2,7 +2,7 @@
 // Nothing here is secret on its own: the computer checks every signature against the passkey it
 // saved at pairing, and only for a challenge it made itself.
 
-import {b64url, challengeFor, derivePairing, normalizeCode, randomBytes, seal, unb64url} from './crypto.js?v=3';
+import {b64url, challengeFor, derivePairing, normalizeCode, randomBytes, seal, unb64url} from './crypto.js?v=4';
 
 const DEFAULT_RELAY = 'https://ntfy.sh';
 const COMPUTERS_KEY = 'facelock.computers';
@@ -121,9 +121,9 @@ async function pair(code, name, relay) {
             pubKeyCredParams: [{type: 'public-key', alg: -7}],
             // This phone's own passkeys, such as Google Password Manager or iCloud Keychain,
             // not a security key or another device.
+            // Passkey apps on Android only make passkeys kept whole on the phone, so ask for that.
             authenticatorSelection: {authenticatorAttachment: 'platform', userVerification: 'required',
-                residentKey: 'preferred'},
-            hints: ['client-device'],
+                residentKey: 'required', requireResidentKey: true},
             attestation: 'none',
             timeout: 120000,
         },
@@ -191,10 +191,11 @@ function startPairing(code = '', name = '', relay = DEFAULT_RELAY) {
             status('Paired. A test notification is on its way.');
         } catch (error) {
             $('passkey-button').disabled = false;
+            console.error(error);
             status(error.name === 'NotAllowedError'
                 ? 'The passkey wasn\'t created. The phone needs somewhere to keep passkeys: on Android, ' +
                   'Google Password Manager or another passkey app, turned on in Settings, Passwords and accounts.'
-                : error.message, true);
+                : `${error.name}: ${error.message}`, true);
         }
     };
     $('code-form').onsubmit = event => event.preventDefault();
@@ -210,7 +211,6 @@ async function answer(request, computer, pick) {
             rpId: location.hostname,
             allowCredentials: [{type: 'public-key', id: unb64url(computer.credential)}],
             userVerification: 'required',
-            hints: ['client-device'],
             timeout: 60000,
         },
     });
@@ -325,7 +325,7 @@ function showHome() {
 
 // --- Diagnostics: which page version this is, and whether the phone can keep a passkey. --- //
 
-const PAGE_VERSION = 3;
+const PAGE_VERSION = 4;
 
 async function diagnose() {
     let platform = 'unknown';
