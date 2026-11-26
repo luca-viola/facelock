@@ -1,8 +1,18 @@
 // Shows Facelock's notifications, and opens the page to approve when one is tapped.
 
-// Version 8.
+// Version 9.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
+
+// The page's own files are always checked with the server, which answers "unchanged" when they
+// are. Otherwise a browser reuses them for up to 10 minutes after an update, which GitHub Pages
+// allows and can't be told not to.
+self.addEventListener('fetch', event => {
+    const url = new URL(event.request.url);
+    if (event.request.method !== 'GET' || url.origin !== self.location.origin)
+        return;
+    event.respondWith(fetch(event.request, {cache: 'no-cache'}).catch(() => fetch(event.request)));
+});
 
 function encodeRequest(request) {
     const bytes = new TextEncoder().encode(JSON.stringify(request));

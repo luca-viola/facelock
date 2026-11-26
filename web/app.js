@@ -4,7 +4,7 @@
 
 import {
     b64url, challengeFor, derivePairing, deviceSign, newDeviceKey, normalizeCode, randomBytes, seal, unb64url,
-} from './crypto.js?v=8';
+} from './crypto.js?v=9';
 
 const DEFAULT_RELAY = 'https://ntfy.sh';
 const COMPUTERS_KEY = 'facelock.computers';
@@ -403,7 +403,7 @@ function showHome() {
 
 // --- Diagnostics: which page version this is, and whether the phone can keep a passkey. --- //
 
-const PAGE_VERSION = 8;
+const PAGE_VERSION = 9;
 
 async function diagnose() {
     let platform = 'unknown';
