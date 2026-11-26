@@ -63,3 +63,4 @@ ol.steps { padding-left: 20px; margin: 8px 0 0; }
 #status.error { color: var(--danger); }
 footer { text-align: center; padding: 24px 0; font-size: 14px; }
 footer a { color: var(--muted); }
+#diagnostics { color: var(--muted); font-size: 13px; }

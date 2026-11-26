@@ -2,7 +2,7 @@
 // Nothing here is secret on its own: the computer checks every signature against the passkey it
 // saved at pairing, and only for a challenge it made itself.
 
-import {b64url, challengeFor, derivePairing, normalizeCode, randomBytes, seal, unb64url} from './crypto.js';
+import {b64url, challengeFor, derivePairing, normalizeCode, randomBytes, seal, unb64url} from './crypto.js?v=3';
 
 const DEFAULT_RELAY = 'https://ntfy.sh';
 const COMPUTERS_KEY = 'facelock.computers';
@@ -323,6 +323,24 @@ function showHome() {
     $('pair-another').onclick = () => startPairing();
 }
 
+// --- Diagnostics: which page version this is, and whether the phone can keep a passkey. --- //
+
+const PAGE_VERSION = 3;
+
+async function diagnose() {
+    let platform = 'unknown';
+    try {
+        platform = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable() ? 'yes' : 'no';
+    } catch {
+        platform = 'no passkey support';
+    }
+    $('diagnostics').textContent = `Page version ${PAGE_VERSION} · Passkeys on this phone: ${platform}`;
+    if (platform !== 'yes') {
+        status('This browser can\'t keep a passkey on this phone. On Android, turn on Google Password ' +
+            'Manager or another passkey app in Settings, Passwords and accounts, and set a screen lock.', true);
+    }
+}
+
 // --- Routing --- //
 
 function decodeRequest(text) {
@@ -361,3 +379,4 @@ navigator.serviceWorker?.addEventListener('message', event => {
 navigator.serviceWorker?.register('sw.js').catch(() => {});
 addEventListener('hashchange', route);
 route();
+diagnose();
