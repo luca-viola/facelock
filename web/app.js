@@ -4,7 +4,7 @@
 
 import {
     b64url, challengeFor, derivePairing, deviceSign, newDeviceKey, normalizeCode, randomBytes, seal, unb64url, unseal,
-} from './crypto.js?v=11';
+} from './crypto.js?v=12';
 
 const DEFAULT_RELAY = 'https://ntfy.sh';
 const COMPUTERS_KEY = 'facelock.computers';
@@ -307,6 +307,7 @@ function showApproval(request) {
             const value = await answer(request, computer, pick);
             status('Sending…');
             await send(request, computer, value);
+            takePending();
             status('Approved. Your computer is unlocking.');
             numbers.hidden = true;
             $('approve-button').hidden = true;
@@ -339,6 +340,7 @@ function showApproval(request) {
     $('deny-button').onclick = async () => {
         try {
             await send(request, computer, {nonce: request.nonce, deny: true});
+            takePending();
             status('Declined. The computer stays locked.');
         } catch (error) {
             status(error.message, true);
@@ -380,7 +382,7 @@ function showHome() {
 
 // --- Diagnostics: which page version this is, and whether the phone can keep a passkey. --- //
 
-const PAGE_VERSION = 11;
+const PAGE_VERSION = 12;
 
 async function diagnose() {
     let platform = 'unknown';
@@ -414,6 +416,14 @@ async function takePending() {
     }
 }
 
+// A request that came by message or through the relay. Only a page on screen takes the saved copy,
+// so a forgotten tab in the background can't take it from the app you're looking at.
+function receive(request) {
+    if (document.visibilityState === 'visible')
+        takePending();
+    showApproval(request);
+}
+
 async function showPending() {
     const request = await takePending();
     if (request)
@@ -444,8 +454,7 @@ function listenForRequests() {
                 const request = await unseal(unb64url(computer.key), askTopic, message.message);
                 if (request?.type !== 'unlock' || request.topic !== topic)
                     return;
-                takePending(); // handled here, so it mustn't show again later
-                showApproval(request);
+                receive(request);
             } catch {
                 // Not sealed with this computer's key: someone else's, so ignored.
             }
@@ -486,10 +495,8 @@ function route() {
 
 // The notification hands an open page the request directly, rather than reloading it.
 navigator.serviceWorker?.addEventListener('message', event => {
-    if (event.data?.type === 'unlock') {
-        takePending(); // already handled, so it mustn't show again later
-        showApproval(event.data.request);
-    }
+    if (event.data?.type === 'unlock')
+        receive(event.data.request);
 });
 navigator.serviceWorker?.register('sw.js').catch(() => {});
 addEventListener('hashchange', route);

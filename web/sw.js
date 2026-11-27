@@ -1,6 +1,6 @@
 // Shows Facelock's notifications, and opens the page to approve when one is tapped.
 
-// Version 11.
+// Version 12.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 
@@ -76,13 +76,15 @@ self.addEventListener('notificationclick', event => {
         return;
     event.waitUntil((async () => {
         await savePending(request);
+        // Every open window gets it: on Android one may be a forgotten browser tab of this page,
+        // and only the one on screen takes the saved copy. The one on screen, if any, is focused.
         const windows = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
-        for (const client of windows) {
-            if ('focus' in client) {
-                client.postMessage({type: 'unlock', request});
-                return client.focus();
-            }
-        }
+        for (const client of windows)
+            client.postMessage({type: 'unlock', request});
+        const target = windows.find(client => client.visibilityState === 'visible' && 'focus' in client) ??
+            windows.find(client => 'focus' in client);
+        if (target)
+            return target.focus();
         const url = new URL(`./#r=${encodeRequest(request)}`, self.registration.scope);
         return self.clients.openWindow(url.href);
     })());
